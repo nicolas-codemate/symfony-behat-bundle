@@ -1,0 +1,40 @@
+{
+  "name": "elbformat/symfony-behat-bundle",
+  "description": "Predefined, extensible behat contexts for symfony applications.",
+  "type": "symfony-bundle",
+  "license": "MIT",
+  "keywords": [
+    "symfony",
+    "behat"
+  ],
+  "authors": [
+    {
+      "name": "Hannes Giesenow",
+      "email": "hannes.giesenow@elbformat.de",
+      "role": "Lead Developer"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Elbformat\\SymfonyBehatBundle\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=7.4",
+    "ext-dom": "*",
+    "ext-json": "*",
+    "behat/behat": "^3.8",
+    "friends-of-behat/symfony-extension": "^2.2",
+    "symfony/dom-crawler": "^5.4"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.3",
+    "phpunit/phpunit": "^8.5",
+    "vimeo/psalm": "^4.13"
+  },
+  "config": {
+    "allow-plugins": {
+      "composer/package-versions-deprecated": true
+    }
+  }
+}
