@@ -21,16 +21,16 @@ use Symfony\Component\HttpKernel\KernelInterface;
  *
  * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
  */
-final class BrowserContext implements Context
+class BrowserContext implements Context
 {
 //    use FormTrait;
 
-    private KernelInterface $kernel;
-    private ?Response $response = null;
-    private ?Request $request = null;
+    protected KernelInterface $kernel;
+    protected ?Response $response = null;
+    protected ?Request $request = null;
 
     /** @var array<string,string|null> */
-    private array $cookies = [];
+    protected array $cookies = [];
 
     public function __construct(KernelInterface $kernel)
     {
