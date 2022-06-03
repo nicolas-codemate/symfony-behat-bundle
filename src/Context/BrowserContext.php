@@ -8,10 +8,12 @@ use Behat\Behat\Context\Context;
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
 use DOMElement;
-use Psr\Container\ContainerInterface;
+use Elbformat\SymfonyBehatBundle\Browser\State;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\DomCrawler\Field\ChoiceFormField;
+use Symfony\Component\DomCrawler\Field\FileFormField;
+use Symfony\Component\DomCrawler\Field\FormField;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
@@ -23,18 +25,15 @@ use Symfony\Component\HttpKernel\KernelInterface;
  */
 class BrowserContext implements Context
 {
-//    use FormTrait;
-
     protected KernelInterface $kernel;
-    protected ?Response $response = null;
-    protected ?Request $request = null;
+    protected State $state;
+    protected string $projectDir;
 
-    /** @var array<string,string|null> */
-    protected array $cookies = [];
-
-    public function __construct(KernelInterface $kernel)
+    public function __construct(KernelInterface $kernel, string $projectDir)
     {
         $this->kernel = $kernel;
+        $this->projectDir = $projectDir;
+        $this->state = $this->newState();
     }
 
     /**
@@ -46,23 +45,24 @@ class BrowserContext implements Context
      * @Given /^(?:|I )am on "(?P<page>[^"]+)"$/
      * @When /^(?:|I )go to "(?P<page>[^"]+)"$/
      * @When I navigate to :page
+     * @When I visit :page
      */
-    public function visit(string $page): void
+    public function iVisit(string $page): void
     {
-        $this->doRequest(Request::create($page, 'GET', [], $this->cookies));
+        $this->doRequest(Request::create($page, 'GET', [], $this->state->getCookies()));
     }
 
     /**
      * @When I send a :method request to :url
      * @When I make a :method request to :url
      */
-    public function sendARequestTo(string $method, string $url, ?PyStringNode $data = null): void
+    public function iSendARequestTo(string $method, string $url, ?PyStringNode $data = null): void
     {
         $server = [];
         if ($data) {
             $server['CONTENT_TYPE'] = 'application/json';
         }
-        $this->doRequest(Request::create($url, strtoupper($method), [], $this->cookies, [], $server, $data ? $data->getRaw() : null));
+        $this->doRequest(Request::create($url, strtoupper($method), [], $this->state->getCookies(), [], $server, $data ? $data->getRaw() : null));
     }
 
     /**
@@ -70,19 +70,101 @@ class BrowserContext implements Context
      */
     public function iFollowtheRedirect(): void
     {
-        if (null === $this->response) {
-            throw new \DomainException('No request was made yet');
-        }
-        $code = $this->response->getStatusCode();
+        $response = $this->state->getResponse();
+        $code = $response->getStatusCode();
         if ($code >= 400 || $code < 300) {
-            throw new \DomainException('No redirect code found: Code ' . $code);
+            throw new \DomainException('No redirect code found: Code '.$code);
         }
-        $targetUrl = (string) $this->response->headers->get('Location');
+        $targetUrl = (string)$response->headers->get('Location');
         // This is not url, not even a path. Not RFC compliant but we need to handle it either way
         if (0 === strpos($targetUrl, '?')) {
-            $targetUrl = $this->getRequest()->getUri().$targetUrl;
+            $targetUrl = $this->state->getRequest()
+                    ->getUri().$targetUrl;
         }
-        $this->doRequest(Request::create($targetUrl, 'GET', [], $this->cookies));
+        $this->doRequest(Request::create($targetUrl, 'GET', [], $this->state->getCookies()));
+    }
+
+    /**
+     * @When I use form :name
+     * @Then the page must contain a form named :name
+     */
+    public function thePageMustContainAFormNamed(string $name): void
+    {
+        $crawler = $this->getCrawler();
+        $form = $crawler->filter(sprintf('form[name="%s"]', $name));
+        if (!$form->count()) {
+            throw $this->createNotFoundException('Form', $crawler->filterXPath('//form'));
+        }
+        $this->state->setLastForm($form);
+    }
+
+    /**
+     * @When I fill :value into :name
+     * @When I select :name radio button with value :value
+     */
+    public function iFillIntoInput(string $value, string $name): void
+    {
+        $formField = $this->state->getLastForm()
+            ->get($name);
+        if (!$formField instanceof FormField) {
+            throw new \DomainException(sprintf('%s is not a form field', $name));
+        }
+        $formField->setValue($value);
+    }
+
+    /**
+     * @When I check :name checkbox
+     */
+    public function iCheckCheckbox(string $name): void
+    {
+        /** @var ChoiceFormField $cb */
+        $formField = $this->state->getLastForm()
+            ->get($name);
+        if (!$formField instanceof ChoiceFormField) {
+            throw new \DomainException(sprintf('%s is not a choice form field', $name));
+        }
+        $formField->tick();
+    }
+
+    /**
+     * @When I select :value from :name
+     */
+    public function iSelectFrom(string $value, string $name): void
+    {
+        $select = $this->state->getLastForm()
+            ->get($name);
+        if (!$select instanceof ChoiceFormField) {
+            throw new \DomainException(sprintf('%s is not a choice form field', $name));
+        }
+        $select->select($value);
+    }
+
+    /**
+     * @When I submit the form( with extra data)
+     */
+    public function iSubmitTheForm(TableNode $table = null): void
+    {
+        $form = $this->state->getLastForm();
+
+        if (null !== $table) {
+            // Convert array to deep structure
+            parse_str(http_build_query($table->getRowsHash()), $extraData);
+            $form->setValues($extraData);
+        }
+        $this->doRequest(Request::create($form->getUri(), $form->getMethod(), $form->getPhpValues(), $this->state->getCookies()));
+    }
+
+    /**
+     * @When I select :fixture upload at :name
+     */
+    public function iSelectUploadfixture(string $fixture, string $name): void
+    {
+        $field = $this->state->getLastForm()
+            ->get($name);
+        if (!$field instanceof FileFormField) {
+            throw new \DomainException(sprintf('%s is not a file form field', $name));
+        }
+        $field->upload($this->projectDir.'/'.$fixture);
     }
 
     /**
@@ -92,13 +174,11 @@ class BrowserContext implements Context
      *
      * @Then /^the response status code should be (?P<code>\d+)$/
      */
-    public function assertResponseStatus(string $code): void
+    public function theResponseStatusCodeShouldBe(string $code): void
     {
-        if ($this->response === null) {
-            throw new \RuntimeException('No response received');
-        }
-        if ($this->response->getStatusCode() !== (int) $code) {
-            throw new \RuntimeException('Received ' . $this->response->getStatusCode());
+        $response = $this->state->getResponse();
+        if ($response->getStatusCode() !== (int)$code) {
+            throw new \RuntimeException('Received '.$response->getStatusCode());
         }
     }
 
@@ -109,10 +189,11 @@ class BrowserContext implements Context
      *
      * @Then /^(?:|I )should see "(?P<text>(?:[^"]|\\")*)"$/
      */
-    public function assertPageContainsText(string $text): void
+    public function iShouldSeeText(string $text): void
     {
-        $regex = '/' . preg_quote($text, '/') . '/ui';
-        $actual = (string) $this->getResponse()->getContent();
+        $regex = '/'.preg_quote($text, '/').'/ui';
+        $actual = (string)$this->state->getResponse()
+            ->getContent();
         if (!preg_match($regex, $actual)) {
             throw new \DomainException('Text not found');
         }
@@ -121,10 +202,10 @@ class BrowserContext implements Context
     /**
      * @Then /^(?:|I )should not see "(?P<text>(?:[^"]|\\")*)"$/
      */
-    public function assertPageNotContainsText(string $text): void
+    public function iShouldNotSeeText(string $text): void
     {
         try {
-            $this->assertPageContainsText($text);
+            $this->iShouldSeeText($text);
         } catch (\DomainException $e) {
             return;
         }
@@ -137,7 +218,7 @@ class BrowserContext implements Context
      */
     public function ishouldSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
     {
-        $this->mustContainTag($tag, $table ? $table->getRowsHash() : null, $multiLineContent ? $multiLineContent->getRaw() : $content);
+        $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
     }
 
     /**
@@ -147,90 +228,123 @@ class BrowserContext implements Context
     public function ishouldNotSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
     {
         try {
-            $this->mustContainTag($tag, $table ? $table->getRowsHash() : null, $multiLineContent ? $multiLineContent->getRaw() : $content);
+            $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
         } catch (\DomainException $e) {
             return;
         }
         throw new \DomainException('Tag found');
     }
 
-    public function getInternalContainer(): ContainerInterface
+    /**
+     * @Then the form must contain an input field
+     */
+    public function theFormMustContainAnInputField(TableNode $attribs): void
     {
-        return $this->client->getContainer();
+        $inputs = $this->state->getLastFormCrawler()
+            ->filterXPath('//input');
+
+        /** @var DOMElement $input */
+        foreach ($inputs as $input) {
+            foreach ($this->getTableData($attribs) as $attrName => $attrVal) {
+                if ($input->getAttribute($attrName) !== $attrVal) {
+                    continue 2;
+                }
+            }
+
+            return;
+        }
+
+        throw $this->createNotFoundException('input', $inputs);
     }
+
+    /*************/
+    /* Internals */
+    /*************/
 
     protected function getCrawler(): Crawler
     {
-        return new Crawler((string) $this->getResponse()->getContent(), $this->getRequest()->getUri());
+        return new Crawler((string)$this->state->getResponse()
+            ->getContent(), $this->state->getRequest()
+            ->getUri());
     }
 
-    /** @param array<array-key,mixed>|null $attr */
-    protected function mustContainTag(string $tagName, ?array $attr = null, ?string $content = null): void
+    /** @param array<string,string> $attr */
+    protected function mustContainTag(string $tagName, array $attr = [], ?string $content = null): void
     {
-        $crawler = new Crawler((string)$this->getResponse()->getContent());
-        $xPath = '//' . $tagName;
-        if (null !== $attr) {
-            foreach ($attr as $attrName => $attrVal) {
-                $xPath .= sprintf('[@%s="%s"]', (string)$attrName, (string)$attrVal);
-            }
+        $crawler = $this->getCrawler();
+        $xPath = '//'.$tagName;
+        foreach ($attr as $attrName => $attrVal) {
+            $xPath .= sprintf('[@%s="%s"]', $attrName, $attrVal);
         }
         $elements = $crawler->filterXPath($xPath);
 
         if (!$elements->count()) {
-            $nearestTags = [];
-            /** @var DOMElement $nearMatch */
-            foreach ($crawler->filterXPath('//' . $tagName) as $nearMatch) {
-                $attrs = [];
-                foreach ($nearMatch->attributes as $domAttr) {
-                    $attrs[] = sprintf('%s="%s"', $domAttr->name, $domAttr->value);
-                }
-                $nearestTags[] = sprintf('<%s %s>', $tagName, implode(' ', $attrs));
-            }
-
-            throw new \DomainException(sprintf("No matching %s tags found. Did you mean one of \n%s", $tagName, implode("\n", $nearestTags)));
+            throw $this->createNotFoundException('Tag', $crawler->filterXPath('//'.$tagName));
         }
 
         // Check content
         if (null !== $content) {
             $content = trim($content);
-            /** @var DOMElement $link */
-            $foundContents = [];
-            foreach ($elements as $link) {
-                if ($content === trim($link->textContent)) {
+            /** @var DOMElement $elem */
+            foreach ($elements as $elem) {
+                if ($content === trim($elem->textContent)) {
                     return;
                 }
-                $foundContents[] = trim($link->textContent);
             }
-            throw new \DomainException(sprintf("No matching content found for %s tag. Did you mean one of\n%s", $tagName, implode("\n", $foundContents)));
+            throw $this->createNotFoundException('Tag with content', $crawler->filterXPath('//'.$tagName));
         }
     }
 
     protected function doRequest(Request $request): void
     {
-        $this->request = $request;
         // Reboot kernel
         $this->kernel->shutdown();
-        $this->response = $this->kernel->handle($request);
-        foreach ($this->response->headers->getCookies() as $cookie) {
-            $this->cookies[$cookie->getName()] = $cookie->getValue();
-        }
+        $response = $this->kernel->handle($request);
+        $this->state->update($request, $response);
     }
 
-    protected function getResponse(): Response
+    protected function newState(): State
     {
-        if (null === $this->response) {
-            throw new \DomainException('No request was made yet.');
-        }
-
-        return $this->response;
+        return new State();
     }
 
-    protected function getRequest(): Request
+    protected function createNotFoundException(string $what, ?Crawler $fallbacks = null): \DomainException
     {
-        if (null === $this->request) {
-            throw new \DomainException('No request was made yet.');
+        $errMsg = sprintf('%s not found.', $what);
+        if (null !== $fallbacks) {
+            $names = [];
+            foreach ($fallbacks as $fallback) {
+                $doc = $fallback->ownerDocument;
+                if (null === $doc) {
+                    throw new \DomainException('Error generating error message: no xml document');
+                }
+                $names[] = $doc->saveXML($fallback);
+            }
+            switch (\count($names)) {
+                case 0:
+                    break;
+                case 1:
+                    $errMsg .= sprintf(' Did you mean "%s"?', $names[0]);
+                    break;
+                default:
+                    $errMsg .= sprintf(" Did you mean one of the following?\n%s", implode("\n", $names));
+                    break;
+            }
         }
 
-        return $this->request;
+        return new \DomainException($errMsg);
+    }
+
+    /**
+     * @return array<string,string>
+     * @psalm-suppress MixedReturnTypeCoercion
+     */
+    protected function getTableData(?TableNode $table): array
+    {
+        if (null === $table) {
+            return [];
+        }
+
+        return $table->getRowsHash();
     }
 }

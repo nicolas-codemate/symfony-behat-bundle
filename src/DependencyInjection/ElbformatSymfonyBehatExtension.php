@@ -6,6 +6,7 @@ use Elbformat\SymfonyBehatBundle\Context\BrowserContext;
 use Elbformat\SymfonyBehatBundle\Context\LoggingContext;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Parameter;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 
 /**
@@ -15,18 +16,17 @@ class ElbformatSymfonyBehatExtension extends Extension
 {
     public function load(array $configs, ContainerBuilder $container): void
     {
-        $this->addDefinition($container, BrowserContext::class);
+        $browserContext = new Definition(BrowserContext::class);
+        $browserContext->setAutoconfigured(true);
+        $browserContext->setAutowired(true);
+        $browserContext->setArgument('$projectDir', new Parameter('kernel.project_dir'));
+        $container->setDefinition(BrowserContext::class, $browserContext);
 
         if (class_exists('Monolog\\Handler\\Handler')) {
-            $this->addDefinition($container, LoggingContext::class);
+            $loggingContext = new Definition(LoggingContext::class);
+            $loggingContext->setAutoconfigured(true);
+            $loggingContext->setAutowired(true);
+            $container->setDefinition(LoggingContext::class, $loggingContext);
         }
-    }
-
-    protected function addDefinition(ContainerBuilder $container, string $className): void
-    {
-        $def = new Definition($className);
-        $def->setAutowired(true);
-        $def->setAutoconfigured(true);
-        $container->setDefinition($className, $def);
     }
 }
