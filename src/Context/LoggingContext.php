@@ -7,6 +7,9 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
 use Monolog\Handler\Handler;
 use Monolog\Handler\TestHandler;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
  * Test interactions with the logger service.
@@ -15,21 +18,28 @@ use Monolog\Handler\TestHandler;
  */
 class LoggingContext implements Context
 {
-    use DiffTrait;
+//    use DiffTrait;
 
     /** @var array<string, Handler> */
     protected $logHandler = [];
 
     protected $logger;
 
-    protected RequestContext $requestContext;
+    protected KernelInterface $kernel;
+
+    public function __construct(KernelInterface $kernel)
+    {
+        $this->kernel = $kernel;
+    }
+
+    protected BrowserContext $requestContext;
 
     /** @BeforeScenario */
-    public function gatherContexts(BeforeScenarioScope $scope): void
-    {
-        $environment = $scope->getEnvironment();
-        $this->requestContext = $environment->getContext(RequestContext::class);
-    }
+//    public function gatherContexts(BeforeScenarioScope $scope): void
+//    {
+//        $environment = $scope->getEnvironment();
+//        $this->requestContext = $environment->getContext(BrowserContext::class);
+//    }
 
     /**
      * @Then the :log logfile should not contain any entries
@@ -196,6 +206,6 @@ class LoggingContext implements Context
 
     protected function getLogHandler(string $log = 'main'): TestHandler
     {
-        return $this->requestContext->getInternalContainer()->get('monolog.handler.' . $log);
+        return $this->kernel->getInternalContainer()->get('monolog.handler.' . $log);
     }
 }

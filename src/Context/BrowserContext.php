@@ -7,8 +7,8 @@ namespace Elbformat\SymfonyBehatBundle\Context;
 use Behat\Behat\Context\Context;
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
-use DOMAttr;
 use DOMElement;
+use Psr\Container\ContainerInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -152,6 +152,11 @@ class BrowserContext implements Context
             return;
         }
         throw new \DomainException('Tag found');
+    }
+
+    public function getInternalContainer(): ContainerInterface
+    {
+        return $this->client->getContainer();
     }
 
     protected function getCrawler(): Crawler
