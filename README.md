@@ -1,5 +1,6 @@
 # symfony-behat-bundle
 This bundle provides reusable behat contexts for symfony applications.
+All steps are written in present, as suggested on https://automationpanda.com/2021/05/11/should-gherkin-steps-use-past-present-or-future-tense/
 
 ## Features
 * BrowserContext for simple HTTP/DOM interactions

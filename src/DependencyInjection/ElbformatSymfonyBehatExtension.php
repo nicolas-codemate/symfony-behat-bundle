@@ -3,6 +3,7 @@
 namespace Elbformat\SymfonyBehatBundle\DependencyInjection;
 
 use Elbformat\SymfonyBehatBundle\Context\BrowserContext;
+use Elbformat\SymfonyBehatBundle\Context\CommandContext;
 use Elbformat\SymfonyBehatBundle\Context\LoggingContext;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -21,6 +22,13 @@ class ElbformatSymfonyBehatExtension extends Extension
         $browserContext->setAutowired(true);
         $browserContext->setArgument('$projectDir', new Parameter('kernel.project_dir'));
         $container->setDefinition(BrowserContext::class, $browserContext);
+
+        if (class_exists('Symfony\\Bundle\\FrameworkBundle\\Console\\Application')) {
+            $commandContext = new Definition(CommandContext::class);
+            $commandContext->setAutoconfigured(true);
+            $commandContext->setAutowired(true);
+            $container->setDefinition(CommandContext::class, $commandContext);
+        }
 
         if (class_exists('Monolog\\Handler\\Handler')) {
             $loggingContext = new Definition(LoggingContext::class);

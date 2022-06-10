@@ -13,3 +13,11 @@ vendor/bin/php-cs-fixer fix --diff tests
 # Check code
 vendor/bin/psalm
 ```
+
+Enable xdebug inside the container
+```bash
+pecl install xdebug-3.1.4
+docker-php-ext-enable xdebug
+export XDEBUG_CONFIG="client_host=172.17.0.1 idekey=PHPSTORM"
+export XDEBUG_MODE="debug"
+```

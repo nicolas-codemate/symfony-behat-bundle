@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Elbformat\SymfonyBehatBundle\Context;
 
 use Behat\Behat\Context\Context;
-use Symfony\Component\Console\Application;
+use DomainException;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
  * Interaction with a symfony console command.
@@ -16,31 +18,45 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 class CommandContext implements Context
 {
-    private BufferedOutput $output;
-    private int $returnCode;
+    private ?string $output;
+    private ?int $returnCode;
+    protected KernelInterface $kernel;
+
+    public function __construct(KernelInterface $kernel)
+    {
+        $this->kernel = $kernel;
+    }
+
+    /**
+     * @BeforeScenario
+     */
+    public function resetDocumentIdStack(): void
+    {
+        $this->output = null;
+        $this->returnCode = null;
+    }
 
     /**
      * @When I run command :command
-     *
-     * @throws \Exception
      */
-    public function iRunCommand($command)
+    public function iRunCommand(string $command): void
     {
         $params = explode(' ', $command);
         array_unshift($params, '-n');
         array_unshift($params, 'console');
         $input = new ArgvInput($params);
-        $this->output = new BufferedOutput();
+        $output = new BufferedOutput();
 
-        $application = new Application();
+        $application = new Application($this->kernel);
         $application->setAutoExit(false);
         $application->setCatchExceptions(false);
         try {
-            $this->returnCode = $application->run($input, $this->output);
+            $this->returnCode = $application->run($input, $output);
+            $this->output = $output->fetch();
         } catch (\Throwable $t) {
             $prev = $t->getPrevious();
             while (null !== $prev) {
-                echo $prev->getMessage() . "\n";
+                echo $prev->getMessage()."\n";
                 $prev = $prev->getPrevious();
             }
             throw $t;
@@ -48,16 +64,44 @@ class CommandContext implements Context
     }
 
     /**
-     * @Then the command should have a return value of :code
-     *
-     * @throws \DomainException
+     * @Then the command has a return value of :code
      */
-    public function theCommandShouldHaveAReturnValueOf($code)
+    public function theCommandSHasAReturnValueOf(string $code): void
     {
-        if (((int) $this->returnCode) !== ((int) $code)) {
-            $msg = sprintf('Expected the command to return code %d but got %d', $code, $this->returnCode);
-            $msg .= "\n" . $this->output->fetch();
-            throw new \DomainException($msg);
+        if (($this->getReturnCode()) !== ((int)$code)) {
+            $msg = sprintf('Expected the command to return code %d but got %d', $code, $this->getReturnCode());
+            $msg .= "\n".$this->getOutput();
+            throw new DomainException($msg);
         }
     }
+
+    /**
+     * @Then the command outputs :text
+     */
+    public function theCommandOutputs(string $text): void
+    {
+        $found = $this->getOutput();
+        if (false === strpos($found, $text)) {
+            throw new DomainException(sprintf("Text not found in\n%s", $found));
+        }
+    }
+
+    protected function getOutput(): string
+    {
+        if (null === $this->output) {
+            throw new DomainException('No command has run yet.');
+        }
+
+        return $this->output;
+    }
+
+    protected function getReturnCode(): int
+    {
+        if (null === $this->returnCode) {
+            throw new DomainException('No command has run yet.');
+        }
+
+        return $this->returnCode;
+    }
+
 }

@@ -3,12 +3,11 @@
 namespace Elbformat\SymfonyBehatBundle\Context;
 
 use Behat\Behat\Context\Context;
-use Behat\Behat\Hook\Scope\BeforeScenarioScope;
+use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Gherkin\Node\TableNode;
-use Monolog\Handler\Handler;
+use Elbformat\SymfonyBehatBundle\Helper\ArrayDeepCompare;
 use Monolog\Handler\TestHandler;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Monolog\Logger;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
@@ -18,13 +17,6 @@ use Symfony\Component\HttpKernel\KernelInterface;
  */
 class LoggingContext implements Context
 {
-//    use DiffTrait;
-
-    /** @var array<string, Handler> */
-    protected $logHandler = [];
-
-    protected $logger;
-
     protected KernelInterface $kernel;
 
     public function __construct(KernelInterface $kernel)
@@ -32,180 +24,134 @@ class LoggingContext implements Context
         $this->kernel = $kernel;
     }
 
-    protected BrowserContext $requestContext;
-
-    /** @BeforeScenario */
-//    public function gatherContexts(BeforeScenarioScope $scope): void
-//    {
-//        $environment = $scope->getEnvironment();
-//        $this->requestContext = $environment->getContext(BrowserContext::class);
-//    }
-
     /**
-     * @Then the :log logfile should not contain any entries
+     * As we use a testHandler, logs are not available to the output.
+     * So we will provide them here, if a scenario fails.
      *
-     * @param string $log Name of the log
-     *
-     * @throws \Exception
+     * @AfterScenario
      */
-    public function logfileContainsNoEntries($log)
+    public function dumpLog(AfterScenarioScope $event): void
     {
-        $logHandler = $this->getLogHandler($log);
-        $records = $logHandler->getRecords();
-        if ($records) {
-            throw new \Exception(var_export($records[0], true));
-        }
-    }
-
-    /**
-     * @Then the :log logfile must contain a(n) :level entry :text
-     *
-     * @param string $log   Name of the log
-     * @param string $level Log Level
-     * @param string $text  Text to be contained
-     *
-     * @throws \Exception
-     */
-    public function logfileContainsEntry($log, $level, $text)
-    {
-        $logHandler = $this->getLogHandler($log);
-        $levelNum = \constant('Monolog\Logger::' . strtoupper($level));
-        if ($logHandler->hasRecordThatContains($text, $levelNum)) {
+        if ($event->getTestResult()
+            ->isPassed()) {
             return;
         }
-        $errMsg = sprintf("Log entry '%s' not found.", $text);
-
-        $records = $logHandler->getRecords();
-        foreach (array_reverse($records) as $record) {
-            if ($record['level'] === $levelNum) {
-                $errMsg .= sprintf("\nLast %s message was '%s'", $level, $record['message']);
-                break;
-            }
-        }
-        $lastRecord = end($records);
-        if (isset($lastRecord['message'])) {
-            $errMsg .= sprintf("\nLast message was '%s'", $lastRecord['message']);
-        }
-        throw new \Exception($errMsg);
+        $this->printLogs();
     }
 
     /**
-     * @Then the :log logfile must not contain a(n) :level entry :text
-     *
-     * @param string $log   Name of the log
-     * @param string $level Log Level
-     * @param string $text  Text to be contained
-     *
-     * @throws \Exception
+     * @Then the :log logfile contains a(n) :level entry :text
      */
-    public function logfileNotContainsEntry($log, $level, $text)
+    public function theLogfileContainsAnEntry(string $log, string $level, string $text, ?TableNode $table = null, bool $dumpLogs = true): void
     {
-        try {
-            $this->logfileContainsEntry($log, $level, $text);
-        } catch (\Exception $t) {
+        $logHandler = $this->getLogHandler($log);
+        $levelNum = Logger::toMonologLevel($level);
+        if (!$logHandler->hasRecordThatContains($text, $levelNum)) {
+            if ($dumpLogs) {
+                $this->printLogs($levelNum);
+            }
+            throw new \DomainException('Log entry not found.');
+        }
+        if (null === $table) {
             return;
         }
-        $logHandler = $this->getLogHandler($log);
-        $records = $logHandler->getRecords();
-        foreach ($records as $record) {
-            if ($record['message'] === $text) {
-                throw new \Exception(var_export($record, true));
-            }
-        }
-    }
-
-    /**
-     * @Then the :log logfile must contain a(n) :level entry :text with context:
-     *
-     * @param string    $log   Name of the log
-     * @param string    $level Log Level
-     * @param string    $text  Text to be contained
-     * @param TableNode $table Expected context
-     *
-     * @throws \Exception
-     */
-    public function logfileContainsEntryWithContext($log, $level, $text, TableNode $table)
-    {
-        // Check message itself first
-        $this->logfileContainsEntry($log, $level, $text);
-
-        $nearest = null;
-        $callable = function ($entry) use ($text, $table, &$nearest) {
+        $tableRows = $table->getRowsHash();
+        if (!$logHandler->hasRecordThatPasses(function ($entry) use ($text, $tableRows) {
             // Message differs
             if ($entry['message'] !== $text) {
                 return false;
             }
 
-            // At least the message is ok
-            $nearest = $entry;
-
             // Check context
-            foreach ($table->getRowsHash() as $key => $val) {
+            foreach ($tableRows as $key => $val) {
+                $foundVal = $entry['context'][$key] ?? null;
+
                 // Context missing
-                if (!isset($entry['context'][$key])) {
+                if (null === $foundVal) {
                     return false;
                 }
 
-                // Perform a regex compare
-                if (strpos($val, '~') === 0 && preg_match('/' . preg_quote(substr($val, -1), '/') . '/', $entry['context'][$key])) {
+                // Regex compare
+                if (strpos($val, '~') === 0 && preg_match('/'.preg_quote(substr($val, -1), '/').'/', $foundVal)) {
                     continue;
                 }
 
-                if ($entry['context'][$key] == $val) {
+                // Simple Compare
+                if ($foundVal == $val) {
                     continue;
                 }
 
-                if (\is_array($entry['context'][$key])) {
-                    $valArr = json_decode($val, true);
+                // Array/Json compare
+                if (\is_array($foundVal)) {
+                    $valArr = json_decode($val, true, 512, JSON_THROW_ON_ERROR);
                     if (null === $valArr) {
-                        echo json_last_error_msg();
-
-                        return false;
+                        throw new \DomainException(json_last_error_msg());
                     }
 
-                    try {
-                        $this->arrayEquals($entry['context'][$key], $valArr);
+                    $dc = new ArrayDeepCompare();
+                    if ($dc->arrayEquals($foundVal, $valArr)) {
                         continue;
-                    } catch (\DomainException $e) {
-                        echo $e->getMessage();
-
-                        return false;
                     }
+                    echo $dc->getDifference();
+
+                    return false;
                 }
 
                 return false;
             }
 
             return true;
-        };
-
-        $levelNum = \constant('Monolog\Logger::' . strtoupper($level));
-
-        $logHandler = $this->getLogHandler($log);
-        if (!$logHandler->hasRecordThatPasses($callable, $levelNum)) {
-            $errMsg = sprintf("Log entry '%s' with given context not found.", $text);
-
-            // Print message with same text but different context
-            if ($nearest) {
-                $errMsg .= "\nSame message with different context found:";
-                $errMsg .= sprintf("\n%s", var_export($nearest['context'], true));
+        }, $levelNum)) {
+            if ($dumpLogs) {
+                $this->printLogs($levelNum);
             }
-
-            throw new \Exception($errMsg);
+            throw new \DomainException('Log entry found, but with different context.');
         }
     }
 
-    public function dumpLog(): void
+    /**
+     * @Then the :log logfile doesn't contain any :level entries
+     */
+    public function theLogfileDoesntContainAnyEntries(string $log, string $level): void
+    {
+        $logHandler = $this->getLogHandler($log);
+        if ($logHandler->hasRecords($level)) {
+            $levelNum = Logger::toMonologLevel($level);
+            $this->printLogs($levelNum);
+            throw new \DomainException('Log entries found');
+        }
+    }
+
+    /**
+     * @Then the :log logfile doesn't contain a(n) :level entry :text
+     */
+    public function theLogfileDoesntContainAnEntry(string $log, string $level, string $text, ?TableNode $table = null): void
+    {
+        try {
+            $this->theLogfileContainsAnEntry($log, $level, $text, $table, false);
+        } catch (\DomainException $t) {
+            return;
+        }
+        $this->printLogs();
+        throw new \DomainException('Entry found');
+    }
+
+
+    protected function getLogHandler(string $log = 'main'): TestHandler
+    {
+        return $this->kernel->getContainer()->get('monolog.handler.'.$log);
+    }
+
+    public function printLogs(int $minLevel = Logger::WARNING): void
     {
         $logHandler = $this->getLogHandler();
         $records = $logHandler->getRecords();
         foreach (array_reverse($records) as $record) {
+            // Skip everything that isn't at least a the required level
+            if ($record['level'] < $minLevel) {
+                continue;
+            }
             echo $record['formatted'];
         }
-    }
-
-    protected function getLogHandler(string $log = 'main'): TestHandler
-    {
-        return $this->kernel->getInternalContainer()->get('monolog.handler.' . $log);
     }
 }

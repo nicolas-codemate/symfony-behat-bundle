@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Elbformat\SymfonyBehatBundle;
 
+use Elbformat\SymfonyBehatBundle\DependencyInjection\MonologCompilerPass;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 /**
@@ -11,4 +13,8 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
  */
 final class ElbformatSymfonyBehatBundle extends Bundle
 {
+    public function build(ContainerBuilder $container): void
+    {
+        $container->addCompilerPass(new MonologCompilerPass());
+    }
 }

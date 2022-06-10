@@ -68,7 +68,7 @@ class BrowserContext implements Context
     /**
      * @When I follow the redirect
      */
-    public function iFollowtheRedirect(): void
+    public function iFollowTheRedirect(): void
     {
         $response = $this->state->getResponse();
         $code = $response->getStatusCode();
@@ -86,9 +86,9 @@ class BrowserContext implements Context
 
     /**
      * @When I use form :name
-     * @Then the page must contain a form named :name
+     * @Then the page contains a form named :name
      */
-    public function thePageMustContainAFormNamed(string $name): void
+    public function thePageContainsAFormNamed(string $name): void
     {
         $crawler = $this->getCrawler();
         $form = $crawler->filter(sprintf('form[name="%s"]', $name));
@@ -102,7 +102,7 @@ class BrowserContext implements Context
      * @When I fill :value into :name
      * @When I select :name radio button with value :value
      */
-    public function iFillIntoInput(string $value, string $name): void
+    public function iFillInto(string $value, string $name): void
     {
         $formField = $this->state->getLastForm()
             ->get($name);
@@ -157,7 +157,7 @@ class BrowserContext implements Context
     /**
      * @When I select :fixture upload at :name
      */
-    public function iSelectUploadfixture(string $fixture, string $name): void
+    public function iSelectUploadAt(string $fixture, string $name): void
     {
         $field = $this->state->getLastForm()
             ->get($name);
@@ -172,9 +172,10 @@ class BrowserContext implements Context
      * Example: Then the response status code should be 200
      * Example: And the response status code should be 400
      *
-     * @Then /^the response status code should be (?P<code>\d+)$/
+     * @Then /^the response status code is (?P<code>\d+)$/
+     * @Then The page displays
      */
-    public function theResponseStatusCodeShouldBe(string $code): void
+    public function theResponseStatusCodeIs(string $code='200'): void
     {
         $response = $this->state->getResponse();
         if ($response->getStatusCode() !== (int)$code) {
@@ -187,9 +188,9 @@ class BrowserContext implements Context
      * Example: Then I should see "Who is the Batman?"
      * Example: And I should see "Who is the Batman?"
      *
-     * @Then /^(?:|I )should see "(?P<text>(?:[^"]|\\")*)"$/
+     * @Then /^(?:|I ) see "(?P<text>(?:[^"]|\\")*)"$/
      */
-    public function iShouldSeeText(string $text): void
+    public function iSee(string $text): void
     {
         $regex = '/'.preg_quote($text, '/').'/ui';
         $actual = (string)$this->state->getResponse()
@@ -200,9 +201,9 @@ class BrowserContext implements Context
     }
 
     /**
-     * @Then /^(?:|I )should not see "(?P<text>(?:[^"]|\\")*)"$/
+     * @Then /^(?:|I )don't see "(?P<text>(?:[^"]|\\")*)"$/
      */
-    public function iShouldNotSeeText(string $text): void
+    public function iDontSee(string $text): void
     {
         try {
             $this->iShouldSeeText($text);
@@ -213,19 +214,19 @@ class BrowserContext implements Context
     }
 
     /**
-     * @Then I should see a(n) :tag tag
-     * @Then I should see a(n) :tag tag :content
+     * @Then I see a(n) :tag tag
+     * @Then I see a(n) :tag tag :content
      */
-    public function ishouldSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
+    public function iSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
     {
         $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
     }
 
     /**
-     * @Then I should not see a(n) :tag tag
-     * @Then I should not see a(n) :tag tag :content
+     * @Then I don't see a(n) :tag tag
+     * @Then I don't see a(n) :tag tag :content
      */
-    public function ishouldNotSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
+    public function idontSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
     {
         try {
             $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
@@ -236,9 +237,9 @@ class BrowserContext implements Context
     }
 
     /**
-     * @Then the form must contain an input field
+     * @Then the form contains an input field
      */
-    public function theFormMustContainAnInputField(TableNode $attribs): void
+    public function theFormContainsAnInputField(TableNode $attribs): void
     {
         $inputs = $this->state->getLastFormCrawler()
             ->filterXPath('//input');
