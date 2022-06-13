@@ -103,5 +103,4 @@ class CommandContext implements Context
 
         return $this->returnCode;
     }
-
 }

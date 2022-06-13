@@ -25,5 +25,4 @@ class MonologCompilerPass implements CompilerPassInterface
             // No logger
         }
     }
-
 }

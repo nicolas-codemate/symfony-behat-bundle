@@ -19,15 +19,6 @@ class State
     protected ?Form $lastForm = null;
     protected ?Crawler $lastFormCrawler = null;
 
-    public function reset(): void
-    {
-        $this->request = null;
-        $this->response = null;
-        $this->cookies = [];
-        $this->lastForm = null;
-        $this->lastFormCrawler = null;
-    }
-
     public function update(Request $request, Response $response): void
     {
         $this->request = $request;

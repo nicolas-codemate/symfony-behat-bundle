@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Elbformat\SymfonyBehatBundle\Helper;
@@ -19,7 +20,7 @@ class ArrayDeepCompare
         return !$this->hasDiff($a, $b);
     }
 
-    public function arrayContains($container, $containment): bool
+    public function arrayContains(array $container, array $containment): bool
     {
         return !$this->hasDiff($containment, $container, '', false);
     }
@@ -33,7 +34,7 @@ class ArrayDeepCompare
         return $this->difference;
     }
 
-    protected function arrayIsAssoc(array $arr)
+    protected function isAssoc(array $arr): bool
     {
         if ([] === $arr) {
             return false;
@@ -68,7 +69,7 @@ class ArrayDeepCompare
         }
 
         // Only two arrays left
-        $isAssoc = $this->arrayIsAssoc($a);
+        $isAssoc = $this->isAssoc($a);
         foreach ($a as $k => $v) {
             $subpath = ($path ? $path.'.' : '').$k;
             if ($isAssoc) {

@@ -9,6 +9,7 @@ use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
 use DOMElement;
 use Elbformat\SymfonyBehatBundle\Browser\State;
+use Elbformat\SymfonyBehatBundle\Browser\StateFactory;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
 use Symfony\Component\DomCrawler\Field\FileFormField;
@@ -27,13 +28,23 @@ class BrowserContext implements Context
 {
     protected KernelInterface $kernel;
     protected State $state;
+    protected StateFactory $stateFactory;
     protected string $projectDir;
 
-    public function __construct(KernelInterface $kernel, string $projectDir)
+    public function __construct(KernelInterface $kernel, StateFactory $stateFactory, string $projectDir)
     {
         $this->kernel = $kernel;
         $this->projectDir = $projectDir;
-        $this->state = $this->newState();
+        $this->stateFactory = $stateFactory;
+        $this->resetState();
+    }
+
+    /**
+     * @BeforeScenario
+     */
+    public function resetState(): void
+    {
+        $this->state = $this->stateFactory->newState();
     }
 
     /**
@@ -91,7 +102,7 @@ class BrowserContext implements Context
     public function thePageContainsAFormNamed(string $name): void
     {
         $crawler = $this->getCrawler();
-        $form = $crawler->filter(sprintf('form[name="%s"]', $name));
+        $form = $crawler->filterXpath(sprintf('//form[@name="%s"]', $name));
         if (!$form->count()) {
             throw $this->createNotFoundException('Form', $crawler->filterXPath('//form'));
         }
@@ -302,11 +313,6 @@ class BrowserContext implements Context
         $this->kernel->shutdown();
         $response = $this->kernel->handle($request);
         $this->state->update($request, $response);
-    }
-
-    protected function newState(): State
-    {
-        return new State();
     }
 
     protected function createNotFoundException(string $what, ?Crawler $fallbacks = null): \DomainException
