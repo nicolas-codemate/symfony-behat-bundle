@@ -352,9 +352,51 @@ class BrowserContextTest extends TestCase
         $this->browserContext->theFormContainsAnInputField(new TableNode($tableData));
     }
 
+    public function testTheResponseJsonMatches(): void
+    {
+        $this->setDom('{"hello":"world"}');
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->theResponseJsonMatches(new PyStringNode(['{"hello":"world"}'], 0));
+    }
+
+    public function testTheResponseJsonMatchesFail(): void
+    {
+        $this->setDom('{"hello":"world"}');
+        $this->expectExceptionMessage("{\n    \"hello\": \"world\"\n}\ngoodbye: Missing");
+        $this->browserContext->theResponseJsonMatches(new PyStringNode(['{"goodbye":"world"}'], 0));
+    }
+
     protected function setDom(string $dom): void
     {
         $this->state->update(Request::create('/'), new Response($dom, 200));
+    }
+
+    public function testTheResponseJsonContains(): void
+    {
+        $this->setDom('{"hello":"world","number":42}');
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->theResponseJsonContains(new PyStringNode(['{"hello":"world"}'], 0));
+    }
+
+    public function testTheResponseJsonContainsFail(): void
+    {
+        $this->setDom('{"hello":"world","number":42}');
+        $this->expectExceptionMessage("{\n    \"hello\": \"world\",\n    \"number\": 42\n}\ngoodbye: Missing");
+        $this->browserContext->theResponseJsonContains(new PyStringNode(['{"goodbye":"world"}'], 0));
+    }
+
+    public function testTheResponseJsonContainsNoArray(): void
+    {
+        $this->setDom('42');
+        $this->expectExceptionMessage("Only arrays can contain something. Got integer");
+        $this->browserContext->theResponseJsonContains(new PyStringNode(['{"goodbye":"world"}'], 0));
+    }
+
+    public function testTheResponseJsonContainsNoArrayExpected(): void
+    {
+        $this->setDom('{"hello":"world","number":42}');
+        $this->expectExceptionMessage("Only arrays can be contained. Got integer");
+        $this->browserContext->theResponseJsonContains(new PyStringNode(['42'], 0));
     }
 
     public function expectNotToPerformAssertions(): void

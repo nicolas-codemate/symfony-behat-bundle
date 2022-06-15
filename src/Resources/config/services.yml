@@ -1,0 +1,5 @@
+services:
+  Elbformat\SymfonyBehatBundle\Browser\StateFactory: ~
+  Elbformat\SymfonyBehatBundle\Application\ApplicationFactory:
+    arguments:
+      $kernel: '@kernel'

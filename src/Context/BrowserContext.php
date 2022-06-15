@@ -10,12 +10,14 @@ use Behat\Gherkin\Node\TableNode;
 use DOMElement;
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use Elbformat\SymfonyBehatBundle\Browser\StateFactory;
+use Elbformat\SymfonyBehatBundle\Helper\ArrayDeepCompare;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
 use Symfony\Component\DomCrawler\Field\FileFormField;
 use Symfony\Component\DomCrawler\Field\FormField;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\KernelInterface;
+use function json_decode;
 
 /**
  * This Context is adapted from Mink Context but with less overhead by using the Kernel directly.
@@ -182,7 +184,7 @@ class BrowserContext implements Context
      * Example: And the response status code should be 400
      *
      * @Then /^the response status code is (?P<code>\d+)$/
-     * @Then The page displays
+     * @Then The page shows up
      */
     public function theResponseStatusCodeIs(string $code = '200'): void
     {
@@ -197,7 +199,7 @@ class BrowserContext implements Context
      * Example: Then I should see "Who is the Batman?"
      * Example: And I should see "Who is the Batman?"
      *
-     * @Then /^(?:|I ) see "(?P<text>(?:[^"]|\\")*)"$/
+     * @Then I see :text
      */
     public function iSee(string $text): void
     {
@@ -263,6 +265,47 @@ class BrowserContext implements Context
 
         throw $this->createNotFoundException('input', $inputs);
     }
+
+    /**
+     * @Then the response json matches
+     */
+    public function theResponseJsonMatches(PyStringNode $string): void
+    {
+        $content = $this->state->getResponse()->getContent() ?: '';
+        /** @var mixed $expected */
+        $expected = json_decode($string->getRaw(), true, 512, JSON_THROW_ON_ERROR);
+        /** @var mixed $got */
+        $got = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        $dc = new ArrayDeepCompare();
+        if ($dc->arrayEquals($expected, $got)) {
+            return;
+        }
+        $gotJson = json_encode($got, JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT);
+        throw new \DomainException(sprintf("Got\n%s\n%s", $gotJson, $dc->getDifference()));
+    }
+
+    /**
+     * @Then the response json contains
+     */
+    public function theResponseJsonContains(PyStringNode $string): void
+    {
+        $content = $this->state->getResponse()->getContent() ?: '';
+        $expected = json_decode($string->getRaw(), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($expected)) {
+            throw new \DomainException(sprintf('Only arrays can be contained. Got %s', gettype($expected)));
+        }
+        $got = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($got)) {
+            throw new \DomainException(sprintf('Only arrays can contain something. Got %s', gettype($got)));
+        }
+        $dc = new ArrayDeepCompare();
+        if ($dc->arrayContains($got, $expected)) {
+            return;
+        }
+        $gotJson = json_encode($got, JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT);
+        throw new \DomainException(sprintf("Got\n%s\n%s", $gotJson, $dc->getDifference()));
+    }
+
 
     /*************/
     /* Internals */

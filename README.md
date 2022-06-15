@@ -30,8 +30,14 @@ default:
         Elbformat\SymfonyBehatBundle\Context\LoggingContext
 ```
 
+## Examples
+Examples can be found in [dock/examples.md](doc/examples.md).
+
 ## What's next?
 The next release will likely contain more contexts like
 * AbstractDoctrineContext - to support building your own entity-based contexts
 * AbstractApiContext - to build your own API-Mock contexts
 * SwiftmailerContext / MailerContext - testing sent mails
+
+## Development
+If you want to develop on the bundle you will find useful information in [doc/development.md](doc/development.md)
