@@ -30,6 +30,8 @@ class ArrayDeepCompareTest extends TestCase
             [['a' => 'b', 'c' => 'd'], /* contains */ ['c' => 'd']],
             [['a' => [['b' => 'c', 'd' => 'e']]], /* contains */ ['a' => [['b' => 'c']]]],
             [['a' => [['b' => 'c', 'd' => 'e']]], /* contains */ ['a' => [['d' => 'e']]]],
+            [['apple','banana'], /* contains */ ['banana']],
+            [['a' => ['apple','banana']], /* contains */ ['a' => []]],
         ];
     }
 
@@ -50,6 +52,46 @@ class ArrayDeepCompareTest extends TestCase
             [['a' => 'b', 'c' => 'd'], /* doesn't contain */  ['c' => 'b'], /* because */ 'c: (string) b != (string) d'],
             [['a' => [['b' => 'c', 'd' => 'e']]], /* doesn't contain */  ['a' => ['b' => 3]], /* because */ 'a.b: Missing'],
             [['a' => [['b' => 'c', 'd' => 'e']]], /* doesn't contain */  ['a' => ['d' => 'c']], /* because */ 'a.d: Missing'],
+            [['a' => ['apple','banana']], /* doesn't contain */ ['a' => 'apple'], /* because */ 'a: <string> != <array>'],
         ];
+    }
+
+    /** @dataProvider arrayEqualsProvider */
+    public function testArrayEquals(array $container, array $containment): void
+    {
+        $this->assertTrue($this->comp->arrayEquals($container, $containment));
+    }
+
+    public function arrayEqualsProvider()
+    {
+        return [
+            [['a'], /* equals */ ['a']],
+            [['a', 'b'], /* equals */ ['b','a']],
+        ];
+    }
+
+    /**
+     * @dataProvider arrayEqualsNotProvider
+     */
+    public function testArrayEqualsNot(array $container, array $containment, string $difference)
+    {
+        $this->assertFalse($this->comp->arrayEquals($container, $containment));
+        $this->assertEquals($difference, $this->comp->getDifference());
+    }
+
+    public function arrayEqualsNotProvider()
+    {
+        return [
+            [['a', 'b'], /* doesn't equal */ ['a'], /* because */ '1: b Missing'],
+            [['a', 'b'], /* doesn't equal */ ['b'], /* because */ '0: a Missing'],
+            [['a'], /* doesn't equal */ ['a','b'], /* because */ 'b: Extra'],
+        ];
+    }
+
+
+    public function testNoDifference(): void
+    {
+        $this->expectExceptionMessage('No difference');
+        $this->comp->getDifference();
     }
 }

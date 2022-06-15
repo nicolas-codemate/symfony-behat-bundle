@@ -118,7 +118,7 @@ class BrowserContext implements Context
         $formField = $this->state->getLastForm()
             ->get($name);
         if (!$formField instanceof FormField) {
-            throw new \DomainException(sprintf('%s is not a form field', $name));
+            throw new \DomainException(sprintf('%s is not a single form field.', $name));
         }
         $formField->setValue($value);
     }
@@ -151,17 +151,12 @@ class BrowserContext implements Context
     }
 
     /**
-     * @When I submit the form( with extra data)
+     * @When I submit the form
      */
-    public function iSubmitTheForm(TableNode $table = null): void
+    public function iSubmitTheForm(): void
     {
         $form = $this->state->getLastForm();
 
-        if (null !== $table) {
-            // Convert array to deep structure
-            parse_str(http_build_query($table->getRowsHash()), $extraData);
-            $form->setValues($extraData);
-        }
         $this->doRequest(Request::create($form->getUri(), $form->getMethod(), $form->getPhpValues(), $this->state->getCookies()));
     }
 
@@ -175,6 +170,9 @@ class BrowserContext implements Context
         if (!$field instanceof FileFormField) {
             throw new \DomainException(sprintf('%s is not a file form field', $name));
         }
+        if (!file_exists($this->projectDir.'/'.$fixture)) {
+            throw new \DomainException(sprintf('Fixture file not found at %s', $this->projectDir.'/'.$fixture));
+        }
         $field->upload($this->projectDir.'/'.$fixture);
     }
 
@@ -186,7 +184,7 @@ class BrowserContext implements Context
      * @Then /^the response status code is (?P<code>\d+)$/
      * @Then The page displays
      */
-    public function theResponseStatusCodeIs(string $code='200'): void
+    public function theResponseStatusCodeIs(string $code = '200'): void
     {
         $response = $this->state->getResponse();
         if ($response->getStatusCode() !== (int)$code) {
@@ -203,11 +201,9 @@ class BrowserContext implements Context
      */
     public function iSee(string $text): void
     {
-        $regex = '/'.preg_quote($text, '/').'/ui';
-        $actual = (string)$this->state->getResponse()
-            ->getContent();
-        if (!preg_match($regex, $actual)) {
-            throw new \DomainException('Text not found');
+        $ex = $this->containsText($text);
+        if ($ex) {
+            throw $ex;
         }
     }
 
@@ -216,12 +212,10 @@ class BrowserContext implements Context
      */
     public function iDontSee(string $text): void
     {
-        try {
-            $this->iShouldSeeText($text);
-        } catch (\DomainException $e) {
-            return;
+        $ex = $this->containsText($text);
+        if (null === $ex) {
+            throw new \DomainException('Text found');
         }
-        throw new \DomainException('Text found');
     }
 
     /**
@@ -230,7 +224,10 @@ class BrowserContext implements Context
      */
     public function iSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
     {
-        $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
+        $ex = $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
+        if ($ex) {
+            throw $ex;
+        }
     }
 
     /**
@@ -239,12 +236,10 @@ class BrowserContext implements Context
      */
     public function idontSeeATag(string $tag, ?TableNode $table = null, ?string $content = null, ?PyStringNode $multiLineContent = null): void
     {
-        try {
-            $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
-        } catch (\DomainException $e) {
-            return;
+        $ex = $this->mustContainTag($tag, $this->getTableData($table), $multiLineContent ? $multiLineContent->getRaw() : $content);
+        if (null === $ex) {
+            throw new \DomainException('Tag found');
         }
-        throw new \DomainException('Tag found');
     }
 
     /**
@@ -280,8 +275,20 @@ class BrowserContext implements Context
             ->getUri());
     }
 
+    protected function containsText(string $text): ?\DomainException
+    {
+        $regex = '/'.preg_quote($text, '/').'/ui';
+        $actual = (string)$this->state->getResponse()
+            ->getContent();
+        if (!preg_match($regex, $actual)) {
+            return new \DomainException('Text not found');
+        }
+
+        return null;
+    }
+
     /** @param array<string,string> $attr */
-    protected function mustContainTag(string $tagName, array $attr = [], ?string $content = null): void
+    protected function mustContainTag(string $tagName, array $attr = [], ?string $content = null): ?\DomainException
     {
         $crawler = $this->getCrawler();
         $xPath = '//'.$tagName;
@@ -291,7 +298,7 @@ class BrowserContext implements Context
         $elements = $crawler->filterXPath($xPath);
 
         if (!$elements->count()) {
-            throw $this->createNotFoundException('Tag', $crawler->filterXPath('//'.$tagName));
+            return $this->createNotFoundException('Tag', $crawler->filterXPath('//'.$tagName));
         }
 
         // Check content
@@ -300,11 +307,14 @@ class BrowserContext implements Context
             /** @var DOMElement $elem */
             foreach ($elements as $elem) {
                 if ($content === trim($elem->textContent)) {
-                    return;
+                    return null;
                 }
             }
-            throw $this->createNotFoundException('Tag with content', $crawler->filterXPath('//'.$tagName));
+
+            return $this->createNotFoundException('Tag with content', $crawler->filterXPath('//'.$tagName));
         }
+
+        return null;
     }
 
     protected function doRequest(Request $request): void
@@ -322,10 +332,7 @@ class BrowserContext implements Context
             $names = [];
             foreach ($fallbacks as $fallback) {
                 $doc = $fallback->ownerDocument;
-                if (null === $doc) {
-                    throw new \DomainException('Error generating error message: no xml document');
-                }
-                $names[] = $doc->saveXML($fallback);
+                $names[] = $doc ? $doc->saveXML($fallback) : '<unknown>';
             }
             switch (\count($names)) {
                 case 0:

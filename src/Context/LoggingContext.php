@@ -3,8 +3,8 @@
 namespace Elbformat\SymfonyBehatBundle\Context;
 
 use Behat\Behat\Context\Context;
-use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Gherkin\Node\TableNode;
+use Behat\Testwork\Hook\Scope\AfterTestScope;
 use Elbformat\SymfonyBehatBundle\Helper\ArrayDeepCompare;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
@@ -13,6 +13,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
 /**
  * Test interactions with the logger service.
  *
+ * @phpstan-import-type LevelName from Logger
  * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
  */
 class LoggingContext implements Context
@@ -30,7 +31,7 @@ class LoggingContext implements Context
      *
      * @AfterScenario
      */
-    public function dumpLog(AfterScenarioScope $event): void
+    public function dumpLog(AfterTestScope $event): void
     {
         if ($event->getTestResult()
             ->isPassed()) {
@@ -41,6 +42,8 @@ class LoggingContext implements Context
 
     /**
      * @Then the :log logfile contains a(n) :level entry :text
+     *
+     *  @phpstan-param LevelName $level
      */
     public function theLogfileContainsAnEntry(string $log, string $level, string $text, ?TableNode $table = null, bool $dumpLogs = true): void
     {
@@ -56,14 +59,16 @@ class LoggingContext implements Context
             return;
         }
         $tableRows = $table->getRowsHash();
-        if (!$logHandler->hasRecordThatPasses(function ($entry) use ($text, $tableRows) {
+        if (!$logHandler->hasRecordThatPasses(function (array $entry) use ($text, $tableRows) {
             // Message differs
             if ($entry['message'] !== $text) {
                 return false;
             }
 
             // Check context
+            /** @var string $val */
             foreach ($tableRows as $key => $val) {
+                /** @var mixed $foundVal */
                 $foundVal = $entry['context'][$key] ?? null;
 
                 // Context missing
@@ -72,7 +77,7 @@ class LoggingContext implements Context
                 }
 
                 // Regex compare
-                if (strpos($val, '~') === 0 && preg_match('/'.preg_quote(substr($val, -1), '/').'/', $foundVal)) {
+                if (strpos($val, '~') === 0 && preg_match('/'.preg_quote(substr($val, -1), '/').'/', (string) $foundVal)) {
                     continue;
                 }
 
@@ -83,10 +88,8 @@ class LoggingContext implements Context
 
                 // Array/Json compare
                 if (\is_array($foundVal)) {
+                    /** @var array $valArr */
                     $valArr = json_decode($val, true, 512, JSON_THROW_ON_ERROR);
-                    if (null === $valArr) {
-                        throw new \DomainException(json_last_error_msg());
-                    }
 
                     $dc = new ArrayDeepCompare();
                     if ($dc->arrayEquals($foundVal, $valArr)) {
@@ -111,6 +114,8 @@ class LoggingContext implements Context
 
     /**
      * @Then the :log logfile doesn't contain any :level entries
+     *
+     * @phpstan-param LevelName $level
      */
     public function theLogfileDoesntContainAnyEntries(string $log, string $level): void
     {
@@ -124,6 +129,8 @@ class LoggingContext implements Context
 
     /**
      * @Then the :log logfile doesn't contain a(n) :level entry :text
+     *
+     * @phpstan-param LevelName $level
      */
     public function theLogfileDoesntContainAnEntry(string $log, string $level, string $text, ?TableNode $table = null): void
     {
@@ -139,7 +146,12 @@ class LoggingContext implements Context
 
     protected function getLogHandler(string $log = 'main'): TestHandler
     {
-        return $this->kernel->getContainer()->get('monolog.handler.'.$log);
+        $handler = $this->kernel->getContainer()->get('monolog.handler.'.$log);
+        if (!$handler instanceof TestHandler) {
+            throw new \DomainException(sprintf('No monolog TestHandler found named %s. Is it public?', 'monolog.handler.'.$log));
+        }
+
+        return $handler;
     }
 
     public function printLogs(int $minLevel = Logger::WARNING): void
@@ -151,7 +163,7 @@ class LoggingContext implements Context
             if ($record['level'] < $minLevel) {
                 continue;
             }
-            echo $record['formatted'];
+            echo $record['formatted'] ?? '';
         }
     }
 }

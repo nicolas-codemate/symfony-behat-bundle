@@ -15,7 +15,11 @@ class ArrayDeepCompare
 {
     protected ?string $difference = null;
 
-    public function arrayEquals(array $a, array $b): bool
+    /**
+     * @param mixed $a
+     * @param mixed $b
+     */
+    public function arrayEquals($a, $b): bool
     {
         return !$this->hasDiff($a, $b);
     }
@@ -46,6 +50,9 @@ class ArrayDeepCompare
     /**
      * Check if two values/arrays are equal.
      *
+     * @param mixed $a
+     * @param mixed $b
+     *
      * @throws DomainException when differs
      */
     protected function hasDiff($a, $b, string $path = '', bool $reverseCheck = true): bool
@@ -53,7 +60,7 @@ class ArrayDeepCompare
         if (!\is_array($a) && !\is_array($b)) {
             // Scalar values -> compare
             if ($a !== $b) {
-                $this->difference = sprintf('%s: (%s) %s != (%s) %s', $path, \gettype($a), $a ?? '', \gettype($b), $b ?? '');
+                $this->difference = sprintf('%s: (%s) %s != (%s) %s', $path, \gettype($a), (string)($a ?? ''), \gettype($b), (string)($b ?? ''));
 
                 return true;
             }
@@ -70,6 +77,7 @@ class ArrayDeepCompare
 
         // Only two arrays left
         $isAssoc = $this->isAssoc($a);
+        /** @var mixed $v */
         foreach ($a as $k => $v) {
             $subpath = ($path ? $path.'.' : '').$k;
             if ($isAssoc) {
@@ -88,12 +96,15 @@ class ArrayDeepCompare
                 // This key is done
                 unset($b[$k]);
             } else {
-                foreach ($b as $bVal) {
+                /** @var mixed $bVal */
+                foreach ($b as $index => $bVal) {
                     if (!$this->hasDiff($v, $bVal, $subpath, $reverseCheck)) {
+                        // This key is done
+                        unset($b[$index]);
                         continue 2;
                     }
                 }
-                $this->difference = sprintf('%s: %s Missing', $subpath, $v);
+                $this->difference = sprintf('%s: %s Missing', $subpath, (string) $v);
 
                 return true;
             }
@@ -101,11 +112,11 @@ class ArrayDeepCompare
 
         // Still entries left in b? -> unequal
         if ($reverseCheck && \count($b)) {
-            foreach ($b as $k => $v) {
-                $this->difference = sprintf('%s: Extra', $path.'/'.$k);
+            $item = (string) array_reverse($b)[0];
+            $subpath = ($path ? $path.'.' : '').$item;
+            $this->difference = sprintf('%s: Extra', $subpath);
 
-                return true;
-            }
+            return true;
         }
 
         return false;

@@ -3,6 +3,7 @@
 namespace Context;
 
 use Behat\Gherkin\Node\PyStringNode;
+use Behat\Gherkin\Node\TableNode;
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use Elbformat\SymfonyBehatBundle\Browser\StateFactory;
 use Elbformat\SymfonyBehatBundle\Context\BrowserContext;
@@ -26,10 +27,10 @@ class BrowserContextTest extends TestCase
         $this->state = new State();
         $this->stateFactory = $this->getMockBuilder(StateFactory::class)->getMock();
         $this->stateFactory->method('newState')->willReturn($this->state);
-        $this->browserContext = new BrowserContext($this->kernel, $this->stateFactory, '');
+        $this->browserContext = new BrowserContext($this->kernel, $this->stateFactory, __DIR__.'/../..');
     }
 
-    public function testIVisit()
+    public function testIVisit(): void
     {
         $this->kernel->expects($this->once())->method('shutdown');
         $this->kernel->expects($this->once())->method('handle')->with($this->callback(function (Request $request) {
@@ -38,7 +39,7 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iVisit('/test');
     }
 
-    public function testISendARequestTo()
+    public function testISendARequestTo(): void
     {
         $postData = [
             '{',
@@ -70,7 +71,7 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iSendARequestTo('POST', '/test', new PyStringNode($postData, 1));
     }
 
-    public function testIFollowTheRedirect()
+    public function testIFollowTheRedirect(): void
     {
         $this->state->update(new Request(), new Response('', 302, ['Location' => '/target']));
         $this->kernel->method('handle')->with($this->callback(function (Request $request) {
@@ -80,11 +81,286 @@ class BrowserContextTest extends TestCase
         $this->assertEquals('Redirect Target', $this->state->getResponse()->getContent());
     }
 
-    public function testThePageContainsAFormNamed()
+    public function testIFollowTheRedirectQuery(): void
     {
-        $this->state->update(new Request(), new Response('<form name="hello"></form>', 302));
+        $this->state->update(Request::create('http://localhost'), new Response('', 302, ['Location' => '?success=true']));
+        $this->kernel->method('handle')->with($this->callback(function (Request $request) {
+            return '/?success=true' === $request->getRequestUri();
+        }))->willReturn(new Response('Redirect Target'));
+        $this->browserContext->iFollowTheRedirect();
+        $this->assertEquals('Redirect Target', $this->state->getResponse()->getContent());
+    }
+
+    public function testIFollowTheRedirectFails(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 500));
+        $this->expectException(\DomainException::class);
+        $this->browserContext->iFollowTheRedirect();
+    }
+
+    public function testThePageContainsAFormNamed(): void
+    {
+        $this->setDom('<form name="hello"></form>');
         $this->browserContext->thePageContainsAFormNamed('hello');
         $this->assertInstanceOf(Form::class, $this->state->getLastForm());
         $this->assertInstanceOf(Crawler::class, $this->state->getLastFormCrawler());
+    }
+
+    public function testThePageContainsAFormNamedFail(): void
+    {
+        $this->setDom('<form name="otherform"></form>');
+        $this->expectException(\DomainException::class);
+        $this->browserContext->thePageContainsAFormNamed('hello');
+    }
+
+    public function testIFillInto(): void
+    {
+        $crawler = new Crawler('<form><input type="text" name="form[text]"/></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->browserContext->iFillInto('test', 'form[text]');
+        $this->assertEquals('test', $this->state->getLastForm()->get('form[text]')->getValue());
+    }
+
+    public function testIFillIntoAmbiguous(): void
+    {
+        $crawler = new Crawler('<form><input name="form[text][]"/><input name="form[text][]"/></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectExceptionMessage('form[text] is not a single form field');
+        $this->browserContext->iFillInto('test', 'form[text]');
+    }
+
+    public function testIFillIntoNoInput(): void
+    {
+        $crawler = new Crawler('<form></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->browserContext->iFillInto('test', 'form[text]');
+    }
+
+    public function testICheckCheckbox(): void
+    {
+        $crawler = new Crawler('<form><input type="checkbox" name="form[check]" value="an"/></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->browserContext->iCheckCheckbox('form[check]');
+        $this->assertTrue($this->state->getLastForm()->get('form[check]')->hasValue());
+    }
+
+    public function testICheckCheckboxWrongType(): void
+    {
+        $crawler = new Crawler('<form><input type="text" name="form[check]" value="an"/></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectExceptionMessage('form[check] is not a choice form field');
+        $this->browserContext->iCheckCheckbox('form[check]');
+    }
+
+    public function testISelectFrom(): void
+    {
+        $crawler = new Crawler('<form><select name="form[selection]"><option value="a">Option A</option></select></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->browserContext->iSelectFrom('a', 'form[selection]');
+        $this->assertEquals('a', $this->state->getLastForm()->get('form[selection]')->getValue());
+    }
+
+    public function testISelectFromNoChoice(): void
+    {
+        $crawler = new Crawler('<form><input type="text" name="form[selection]" /></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectExceptionMessage('form[selection] is not a choice form field');
+        $this->browserContext->iSelectFrom('a', 'form[selection]');
+    }
+
+    public function testISubmitTheForm(): void
+    {
+        $dom = '<form action="/submit" method="post"><input type="text" name="lorem" value="ipsum"></form>';
+        $this->setDom($dom);
+        $crawler = new Crawler($dom, 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->kernel->expects($this->once())->method('handle')->with($this->callback(function (Request $request) {
+            if ('/submit' !== $request->getRequestUri()) {
+                return false;
+            }
+            if ('POST' !== $request->getMethod()) {
+                return false;
+            }
+            if ('ipsum' !== $request->request->get('lorem')) {
+                return false;
+            }
+
+            return true;
+        }))->willReturn(new Response('Redirect Target'));
+        $this->browserContext->iSubmitTheForm();
+    }
+
+    public function testISelectUploadAt(): void
+    {
+        $crawler = new Crawler('<form><input type="file" name="form[file]" /></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->browserContext->iSelectUploadAt('tests/fixtures/1px.jpg', 'form[file]');
+        $uplValue = $this->state->getLastForm()->get('form[file]')->getValue();
+        $this->assertIsArray($uplValue);
+        $this->assertEquals('1px.jpg', $uplValue['name']);
+    }
+
+    public function testISelectUploadAtNotAnUpload(): void
+    {
+        $crawler = new Crawler('<form><input type="text" name="form[file]" /></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectExceptionMessage('form[file] is not a file form field');
+        $this->browserContext->iSelectUploadAt('tests/fixtures/1px.png', 'form[file]');
+    }
+
+    public function testISelectUploadAtMissingFixture(): void
+    {
+        $crawler = new Crawler('<form><input type="file" name="form[file]" /></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectExceptionMessageMatches('/Fixture file not found/');
+        $this->expectExceptionMessageMatches('#tests/fixtures/1px.png#');
+        $this->browserContext->iSelectUploadAt('tests/fixtures/1px.png', 'form[file]');
+    }
+
+    public function testTheResponseStatusCodeIs(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 200));
+        $this->browserContext->theResponseStatusCodeIs('200');
+        $this->expectNotToPerformAssertions();
+    }
+
+    public function testTheResponseStatusCodeIsFails(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 404));
+        $this->expectException(\RuntimeException::class);
+        $this->browserContext->theResponseStatusCodeIs('200');
+    }
+
+    public function testISee(): void
+    {
+        $this->setDom('<p>Hello World</p>');
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->iSee('Hello World');
+    }
+
+    public function testISeeFails(): void
+    {
+        $this->setDom('<p>Hello World</p>');
+        $this->expectException(\DomainException::class);
+        $this->browserContext->iSee('Bye World');
+    }
+
+    public function testIDontSee(): void
+    {
+        $this->setDom('<p>Hello World</p>');
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->iDontSee('Bye World');
+    }
+
+    public function testIDontSeeFails(): void
+    {
+        $this->setDom('<p>Hello World</p>');
+        $this->expectException(\DomainException::class);
+        $this->browserContext->iDontSee('Hello World');
+    }
+
+    public function testISeeATag(): void
+    {
+        $this->setDom('<a href="/test"></a>');
+        $table = new TableNode([0 => ['href', '/test']]);
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->iSeeATag('a', $table);
+    }
+
+    public function testISeeATagWithContent(): void
+    {
+        $this->setDom('<a href="/test">Hello World</a>');
+        $table = new TableNode([0 => ['href', '/test']]);
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->iSeeATag('a', $table, 'Hello World');
+    }
+
+    public function testISeeATagFails(): void
+    {
+        $this->setDom('<a href="/test">Hello World</a>');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Tag not found. Did you mean "<a href="/test">Hello World</a>"?');
+        $table = new TableNode([0 => ['href', '/notest']]);
+        $this->browserContext->iSeeATag('a', $table, 'Hello World');
+    }
+
+    public function testISeeATagFailsNoTag(): void
+    {
+        $this->setDom('<p>Hello World</p>');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Tag not found.');
+        $table = new TableNode([0 => ['href', '/notest']]);
+        $this->browserContext->iSeeATag('a', $table, 'Hello World');
+    }
+
+    public function testISeeATagFailsMultipleAlternatives(): void
+    {
+        $this->setDom('<p>Hello World</p><p>Bye World</p>');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage("Tag with content not found. Did you mean one of the following?\n<p>Hello World</p>\n<p>Bye World</p>");
+        $this->browserContext->iSeeATag('p', null, 'Mars');
+    }
+
+    public function testISeeATagWrongContent(): void
+    {
+        $this->setDom('<a href="/test">Hello World</a>');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Tag with content not found. Did you mean "<a href="/test">Hello World</a>"?');
+        $table = new TableNode([0 => ['href', '/test']]);
+        $this->browserContext->iSeeATag('a', $table, 'Bye World');
+    }
+
+    public function testIDontSeeATag(): void
+    {
+        $this->setDom('<a href="/test">Hello World</a>');
+        $this->expectNotToPerformAssertions();
+        $table = new TableNode([0 => ['href', '/test']]);
+        $this->browserContext->idontSeeATag('a', $table, 'Bye World');
+    }
+
+    public function testIDontSeeATagFails(): void
+    {
+        $this->setDom('<a href="/test">Hello World</a>');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Tag found');
+        $table = new TableNode([0 => ['href', '/test']]);
+        $this->browserContext->idontSeeATag('a', $table, 'Hello World');
+    }
+
+    public function testTheFormContainsAnInputField(): void
+    {
+        $crawler = new Crawler('<form><input type="text" name="form[text]"></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $tableData = [
+            1 => ['type', 'text'],
+            2 => ['name', 'form[text]'],
+        ];
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->theFormContainsAnInputField(new TableNode($tableData));
+    }
+
+    public function testTheFormContainsAnInputFieldWrongType(): void
+    {
+        $crawler = new Crawler('<form><input type="password" name="form[text]"></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->expectExceptionMessage('input not found. Did you mean "<input type="password" name="form[text]"/>"?');
+        $tableData = [
+            1 => ['type', 'text'],
+            2 => ['name', 'form[text]'],
+        ];
+        $this->browserContext->theFormContainsAnInputField(new TableNode($tableData));
+    }
+
+    protected function setDom(string $dom): void
+    {
+        $this->state->update(Request::create('/'), new Response($dom, 200));
+    }
+
+    public function expectNotToPerformAssertions(): void
+    {
+        // Absolutely NOT RECOMMENDED, but needed workaround for code coverage
+        //parent::expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
 }

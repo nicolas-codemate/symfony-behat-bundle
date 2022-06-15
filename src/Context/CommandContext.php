@@ -6,6 +6,7 @@ namespace Elbformat\SymfonyBehatBundle\Context;
 
 use Behat\Behat\Context\Context;
 use DomainException;
+use Elbformat\SymfonyBehatBundle\Application\ApplicationFactory;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -18,13 +19,13 @@ use Symfony\Component\HttpKernel\KernelInterface;
  */
 class CommandContext implements Context
 {
-    private ?string $output;
-    private ?int $returnCode;
-    protected KernelInterface $kernel;
+    private ?string $output = null;
+    private ?int $returnCode= null;
+    protected ApplicationFactory $appFactory;
 
-    public function __construct(KernelInterface $kernel)
+    public function __construct(ApplicationFactory $appFactory)
     {
-        $this->kernel = $kernel;
+        $this->appFactory = $appFactory;
     }
 
     /**
@@ -47,10 +48,8 @@ class CommandContext implements Context
         $input = new ArgvInput($params);
         $output = new BufferedOutput();
 
-        $application = new Application($this->kernel);
-        $application->setAutoExit(false);
-        $application->setCatchExceptions(false);
         try {
+            $application = $this->appFactory->create();
             $this->returnCode = $application->run($input, $output);
             $this->output = $output->fetch();
         } catch (\Throwable $t) {
