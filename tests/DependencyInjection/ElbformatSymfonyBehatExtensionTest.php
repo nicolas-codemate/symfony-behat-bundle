@@ -17,7 +17,7 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
     {
         $ext = new ElbformatSymfonyBehatExtension();
         $containerBuilder = $this->createMock(ContainerBuilder::class);
-        $containerBuilder->expects($this->at(0))
+        $containerBuilder->expects($this->at(5))
             ->method('setDefinition')
             ->with(BrowserContext::class, $this->callback(function (Definition $def) {
                 if (BrowserContext::class !== $def->getClass()) {
@@ -25,7 +25,7 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
                 }
                 return true;
             }));
-        $containerBuilder->expects($this->at(1))
+        $containerBuilder->expects($this->at(6))
             ->method('setDefinition')
             ->with(CommandContext::class, $this->callback(function (Definition $def) {
                 if (CommandContext::class !== $def->getClass()) {
@@ -33,7 +33,7 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
                 }
                 return true;
             }));
-        $containerBuilder->expects($this->at(2))
+        $containerBuilder->expects($this->at(7))
             ->method('setDefinition')
             ->with(LoggingContext::class, $this->callback(function (Definition $def) {
                 if (LoggingContext::class !== $def->getClass()) {
