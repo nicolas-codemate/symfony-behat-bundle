@@ -17,6 +17,7 @@ use Symfony\Component\DomCrawler\Field\FileFormField;
 use Symfony\Component\DomCrawler\Field\FormField;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\KernelInterface;
+
 use function json_decode;
 
 /**
@@ -62,7 +63,22 @@ class BrowserContext implements Context
      */
     public function iVisit(string $page): void
     {
-        $this->doRequest(Request::create($page, 'GET', [], $this->state->getCookies()));
+        $this->doRequest($this->buildRequest($page));
+    }
+
+    /**
+     * @When I navigate to :page with http headers
+     */
+    public function iNavigateToWithHeaders(string $page, TableNode $data): void
+    {
+        $server = [];
+        /** @var array<string,string> $rowsHash */
+        $rowsHash = $data->getRowsHash();
+        foreach ($rowsHash as $key => $val) {
+            $keyName = 'HTTP_'.strtoupper(str_replace('-', '_', $key));
+            $server[$keyName] = $val;
+        }
+        $this->doRequest($this->buildRequest($page, 'GET', $server));
     }
 
     /**
@@ -75,7 +91,7 @@ class BrowserContext implements Context
         if ($data) {
             $server['CONTENT_TYPE'] = 'application/json';
         }
-        $this->doRequest(Request::create($url, strtoupper($method), [], $this->state->getCookies(), [], $server, $data ? $data->getRaw() : null));
+        $this->doRequest($this->buildRequest($url, $method, $server, $data ? $data->getRaw() : null));
     }
 
     /**
@@ -94,7 +110,7 @@ class BrowserContext implements Context
             $targetUrl = $this->state->getRequest()
                     ->getUri().$targetUrl;
         }
-        $this->doRequest(Request::create($targetUrl, 'GET', [], $this->state->getCookies()));
+        $this->doRequest($this->buildRequest($targetUrl));
     }
 
     /**
@@ -159,7 +175,7 @@ class BrowserContext implements Context
     {
         $form = $this->state->getLastForm();
 
-        $this->doRequest(Request::create($form->getUri(), $form->getMethod(), $form->getPhpValues(), $this->state->getCookies()));
+        $this->doRequest($this->buildRequest($form->getUri(), $form->getMethod(), [], null, $form->getPhpValues()));
     }
 
     /**
@@ -192,6 +208,30 @@ class BrowserContext implements Context
         if ($response->getStatusCode() !== (int)$code) {
             throw new \RuntimeException('Received '.$response->getStatusCode());
         }
+    }
+
+    /**
+     * @Then I am being redirected to :url
+     */
+    public function iAmBeingRedirectedTo(string $url): void
+    {
+        $response = $this->state->getResponse();
+        $httpCode = $response->getStatusCode();
+        if (!\in_array($httpCode, [301, 302, 307], true)) {
+            throw new \DomainException(sprintf('Wrong HTTP Code, got %d', $httpCode));
+        }
+
+        foreach ($response->headers->all() as $key => $val) {
+            if ('location' === strtolower((string)$key)) {
+                $val0 = ($val[0] ??'');
+                if ($val0 !== $url) {
+                    throw new \DomainException('Wrong redirect target: '.$val0);
+                }
+
+                return;
+            }
+        }
+        throw new \DomainException('No redirect header found');
     }
 
     /**
@@ -403,5 +443,13 @@ class BrowserContext implements Context
         }
 
         return $table->getRowsHash();
+    }
+
+    /** @param array<string,string> $server */
+    protected function buildRequest(string $uri, string $method = 'GET', array $server = [], ?string $content = null, array $parameters=[]): Request
+    {
+        $server['SCRIPT_FILENAME'] = $server['SCRIPT_FILENAME'] ?? 'index.php';
+
+        return Request::create($uri, $method, $parameters, $this->state->getCookies(), [], $server, $content);
     }
 }

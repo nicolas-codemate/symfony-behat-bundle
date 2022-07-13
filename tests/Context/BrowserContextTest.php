@@ -39,6 +39,21 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iVisit('/test');
     }
 
+    public function testINavigateToWithHeaders(): void
+    {
+        $this->kernel->expects($this->once())->method('shutdown');
+        $this->kernel->expects($this->once())->method('handle')->with($this->callback(function (Request $request) {
+            if ('/test' !== $request->getPathInfo()) {
+                return false;
+            }
+            if ('de' !== $request->getPreferredLanguage(['en','de'])) {
+                return false;
+            }
+            return true;
+        }))->willReturn(new Response(''));
+        $this->browserContext->iNavigateToWithHeaders('/test', new TableNode([0 => ['Accept-Language','de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7']]));
+    }
+
     public function testISendARequestTo(): void
     {
         $postData = [
@@ -225,11 +240,35 @@ class BrowserContextTest extends TestCase
         $this->expectNotToPerformAssertions();
     }
 
+
     public function testTheResponseStatusCodeIsFails(): void
     {
         $this->state->update(Request::create('/'), new Response('', 404));
         $this->expectException(\RuntimeException::class);
         $this->browserContext->theResponseStatusCodeIs('200');
+    }
+
+    public function testIAmBeingRedirectedTo(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 302, ['Location' => '/redirecttarget']));
+        $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
+        $this->expectNotToPerformAssertions();
+    }
+
+    public function testIAmBeingRedirectedToWrongCode(): void
+    {
+        $this->expectExceptionMessage('Wrong HTTP Code, got 200');
+        $this->state->update(Request::create('/'), new Response('', 200));
+        $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
+        $this->expectNotToPerformAssertions();
+    }
+
+    public function testIAmBeingRedirectedToWrongLocation(): void
+    {
+        $this->expectExceptionMessage('Wrong redirect target: /anotherone');
+        $this->state->update(Request::create('/'), new Response('', 302, ['Location' =>'/anotherone']));
+        $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
+        $this->expectNotToPerformAssertions();
     }
 
     public function testISee(): void

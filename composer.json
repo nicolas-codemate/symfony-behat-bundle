@@ -32,7 +32,8 @@
     "phpunit/phpunit": "^8.5",
     "vimeo/psalm": "^4.13",
     "monolog/monolog": "^2.6",
-    "symfony/framework-bundle": "^5.4"
+    "symfony/framework-bundle": "^5.4",
+    "doctrine/orm": "^2.12"
   },
   "config": {
     "allow-plugins": {
