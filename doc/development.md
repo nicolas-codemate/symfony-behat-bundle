@@ -2,7 +2,7 @@
 
 Use docker for local tasks
 ```bash
-docker run -it -v $(pwd)/:/var/www hgiesenow/php:7.4 sh
+docker run -it -v $(pwd)/:/var/www hgiesenow/php:7.4 bash
 # Install dependencies
 composer install
 # Run behat tests

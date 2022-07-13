@@ -22,12 +22,20 @@ Elbformat\SymfonyBehatBundle\ElbformatSymfonyBehatBundle::class => ['test' => tr
 Use contexts in your `behat.yml` as you like
 ```yaml
 default:
+  extensions:
+    FriendsOfBehat\SymfonyExtension:
+      bootstrap: tests/bootstrap.php
+      kernel:
+        path: src/Kernel.php
+        class: App\Kernel
+        environment: behat
+        debug: false
   suites:
     default:
       contexts:
-        Elbformat\SymfonyBehatBundle\Context\BrowserContext
-        Elbformat\SymfonyBehatBundle\Context\CommandContext
-        Elbformat\SymfonyBehatBundle\Context\LoggingContext
+        - Elbformat\SymfonyBehatBundle\Context\BrowserContext
+        - Elbformat\SymfonyBehatBundle\Context\CommandContext
+        - Elbformat\SymfonyBehatBundle\Context\LoggingContext
 ```
 
 ## Examples
