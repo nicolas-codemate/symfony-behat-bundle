@@ -254,7 +254,6 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
         $this->expectNotToPerformAssertions();
     }
-
     public function testIAmBeingRedirectedToWrongCode(): void
     {
         $this->expectExceptionMessage('Wrong HTTP Code, got 200');
@@ -262,13 +261,18 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
         $this->expectNotToPerformAssertions();
     }
-
     public function testIAmBeingRedirectedToWrongLocation(): void
     {
         $this->expectExceptionMessage('Wrong redirect target: /anotherone');
         $this->state->update(Request::create('/'), new Response('', 302, ['Location' =>'/anotherone']));
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
         $this->expectNotToPerformAssertions();
+    }
+    public function testIAmBeingRedirectedToNoLocation(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 302, ));
+        $this->expectExceptionMessage('No location header found');
+        $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
     }
 
     public function testISee(): void

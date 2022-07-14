@@ -5,6 +5,8 @@ namespace Elbformat\SymfonyBehatBundle\DependencyInjection;
 use Elbformat\SymfonyBehatBundle\Context\BrowserContext;
 use Elbformat\SymfonyBehatBundle\Context\CommandContext;
 use Elbformat\SymfonyBehatBundle\Context\LoggingContext;
+use Elbformat\SymfonyBehatBundle\Context\SwiftmailerContext;
+use Elbformat\SymfonyBehatBundle\Swiftmailer\TestTransport;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -40,6 +42,16 @@ class ElbformatSymfonyBehatExtension extends Extension
             $loggingContext->setAutoconfigured(true);
             $loggingContext->setAutowired(true);
             $container->setDefinition(LoggingContext::class, $loggingContext);
+        }
+
+        if (class_exists('\Swift')) {
+            $testTransport = new Definition(TestTransport::class);
+            $container->setDefinition(TestTransport::class, $testTransport);
+
+            $swiftContext = new Definition(SwiftmailerContext::class);
+            $swiftContext->setAutoconfigured(true);
+            $swiftContext->setAutowired(true);
+            $container->setDefinition(SwiftmailerContext::class, $swiftContext);
         }
     }
 }
