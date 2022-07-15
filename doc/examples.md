@@ -59,7 +59,22 @@ Feature: Examples
     When I follow the redirect
     Then the page shows up
     And I See "ok"
-
+    And an e-mail is being sent to "test@noreply" with subject "Test E-Mail"
+    And the e-mail contains "Hello World"
+    And the e-mail contains "~Hello .* nice to meet you."
+    And the e-mail does not contain "Goodbye World"
+    And the e-mail is also being sent to "noreply@test"
+    And the e-mail has a carbon copy recipient "cc@noreply"
+    And the e-mail has a blind carbon copy recipient "bcc@noreply"
+    And the e-mail is being sent from "noreply@noreply"
+    And the e-mail reply is set to "info@noreply"
+  
+  Scenario: Submitted form redirects
+    When I visit "/home"
+    And I use form "hello"
+    And I submit the form
+    Then I am being redirected to "/success"
+    
   Scenario: Command produces log entries
     When I run command "test:produce-logs"
     Then the command has a return value of 0

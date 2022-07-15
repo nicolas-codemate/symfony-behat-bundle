@@ -2,29 +2,28 @@
 
 namespace Elbformat\SymfonyBehatBundle\DependencyInjection;
 
+use Elbformat\SymfonyBehatBundle\Swiftmailer\TestTransport;
 use Monolog\Handler\TestHandler;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
+use Symfony\Component\DependencyInjection\Reference;
 
 /**
- * Make monolog handler public.
+ * Use spooling for mailer.
  *
  * @author Hannes Giesenow <hannes.giesenow@elbformat.de>
  */
-class MonologCompilerPass implements CompilerPassInterface
+class SwiftmailerCompilerPass implements CompilerPassInterface
 {
     public function process(ContainerBuilder $container): void
     {
-        // Make all log handlers public and use the TestHandler to read entries later
+        // Let all mailers use the TestTransport to read entries later
         foreach ($container->getDefinitions() as $id => $def) {
-            if (!str_starts_with($id, 'monolog.handler')) {
+            if (!preg_match('/^swiftmailer\.mailer\.[^.]+$/', $id)) {
                 continue;
             }
-            $def->setPublic(true);
-            $def->setClass(TestHandler::class);
-            $def->setArguments([]);
-            $def->setMethodCalls([]);
+            $def->replaceArgument(0, new Reference(TestTransport::class));
         }
     }
 }

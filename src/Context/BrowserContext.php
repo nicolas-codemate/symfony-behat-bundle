@@ -231,7 +231,7 @@ class BrowserContext implements Context
                 return;
             }
         }
-        throw new \DomainException('No redirect header found');
+        throw new \DomainException('No location header found');
     }
 
     /**
