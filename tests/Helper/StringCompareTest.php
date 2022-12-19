@@ -29,6 +29,7 @@ class StringCompareTest extends TestCase
             ['Hello World', '~.*'],
             ['Hello World', '~ello'],
             ['Hello World', '~[a-z]+'],
+            ['Hello World', '~^Hello World$'],
         ];
     }
 
@@ -46,6 +47,51 @@ class StringCompareTest extends TestCase
             ['Hello','World'],
             ['Hello','hello'],
             ['Hello','~[0-9]'],
+            ['Hello World','^World$'],
+            ['Hello World','^Hello$'],
+        ];
+    }
+
+    /** @dataProvider stringEqualsProvider */
+    public function testStringEquals(string $haystack, string $needle): void
+    {
+        $this->assertTrue($this->comp->stringEquals($haystack, $needle));
+    }
+
+    public function stringEqualsProvider()
+    {
+        return [
+            ['Hello World', 'Hello World'],
+            ['Hello World', '~.*'],
+            ['Hello World', '~[a-zA-Z\s]+'],
+            ['Hello World', '~^Hello World$'],
+            ['Hello World', '~^Hello World'],
+            ['Hello World', '~Hello World$'],
+            ['Hello World', '~Hello World'],
+        ];
+    }
+
+    /**
+     * @dataProvider stringEqualsNotProvider
+     */
+    public function testStringEqualsNot(string $haystack, string $needle)
+    {
+        $this->assertFalse($this->comp->stringEquals($haystack, $needle));
+    }
+
+    public function stringEqualsNotProvider()
+    {
+        return [
+            ['Hello World', 'Hello'],
+            ['Hello World', 'World'],
+            ['Hello','World'],
+            ['Hello','hello'],
+            ['Hello', '~ello'],
+            ['Hello','~[0-9]'],
+            ['Hello World', '~[a-z]+'],
+            ['Hello World','^World$'],
+            ['Hello World','^Hello$'],
+            ['Hello World', '~World$'],
         ];
     }
 }

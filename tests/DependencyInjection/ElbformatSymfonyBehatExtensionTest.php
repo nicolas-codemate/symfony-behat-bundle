@@ -20,26 +20,17 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
         $containerBuilder->expects($this->at(5))
             ->method('setDefinition')
             ->with(BrowserContext::class, $this->callback(function (Definition $def) {
-                if (BrowserContext::class !== $def->getClass()) {
-                    return false;
-                }
-                return true;
+                return BrowserContext::class === $def->getClass();
             }));
         $containerBuilder->expects($this->at(6))
             ->method('setDefinition')
             ->with(CommandContext::class, $this->callback(function (Definition $def) {
-                if (CommandContext::class !== $def->getClass()) {
-                    return false;
-                }
-                return true;
+                return CommandContext::class === $def->getClass();
             }));
         $containerBuilder->expects($this->at(7))
             ->method('setDefinition')
             ->with(LoggingContext::class, $this->callback(function (Definition $def) {
-                if (LoggingContext::class !== $def->getClass()) {
-                    return false;
-                }
-                return true;
+                return LoggingContext::class === $def->getClass();
             }));
         $ext->load([], $containerBuilder);
     }

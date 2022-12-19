@@ -23,6 +23,8 @@ Feature: Examples
   Scenario: JSON Request
     When I make a POST request to "/endpoint.json"
     Then the response status code is 200
+    And the response has http headers
+      | Content-Type | application/json |
     And the response json matches
     """
     {
@@ -53,6 +55,7 @@ Feature: Examples
     And I select "hello[radio]" radio button with value "option1"
     And I check "hello[check]" checkbox
     And I select "option3" from "hello[dropdown]"
+    And I select "option1,option2" from "hello[multiselect]"
     And I select "test/fixtures/image.jpg" upload at "hello[file]"
     And I submit the form
     Then the response status code is 302
@@ -79,6 +82,7 @@ Feature: Examples
     When I run command "test:produce-logs"
     Then the command has a return value of 0
     And the command outputs "logs were produced"
+    And the command does not output "everything ok"
     And the main logfile contains an error entry "no errors"
     And the main logfile contains a warning entry "but warnings"
       | id | 42 |

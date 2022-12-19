@@ -7,6 +7,8 @@ use Behat\Gherkin\Node\TableNode;
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use Elbformat\SymfonyBehatBundle\Browser\StateFactory;
 use Elbformat\SymfonyBehatBundle\Context\BrowserContext;
+use Elbformat\SymfonyBehatBundle\Helper\ArrayDeepCompare;
+use Elbformat\SymfonyBehatBundle\Helper\StringCompare;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Form;
@@ -27,7 +29,7 @@ class BrowserContextTest extends TestCase
         $this->state = new State();
         $this->stateFactory = $this->getMockBuilder(StateFactory::class)->getMock();
         $this->stateFactory->method('newState')->willReturn($this->state);
-        $this->browserContext = new BrowserContext($this->kernel, $this->stateFactory, __DIR__.'/../..');
+        $this->browserContext = new BrowserContext($this->kernel, $this->stateFactory, __DIR__.'/../..', new StringCompare(), new ArrayDeepCompare());
     }
 
     public function testIVisit(): void
@@ -46,12 +48,18 @@ class BrowserContextTest extends TestCase
             if ('/test' !== $request->getPathInfo()) {
                 return false;
             }
-            if ('de' !== $request->getPreferredLanguage(['en','de'])) {
+            if ('de' !== $request->getPreferredLanguage(['en', 'de'])) {
                 return false;
             }
+
             return true;
         }))->willReturn(new Response(''));
-        $this->browserContext->iNavigateToWithHeaders('/test', new TableNode([0 => ['Accept-Language','de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7']]));
+        $this->browserContext->iNavigateToWithHeaders('/test', new TableNode([
+            0 => [
+                'Accept-Language',
+                'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+            ],
+        ]));
     }
 
     public function testISendARequestTo(): void
@@ -176,6 +184,14 @@ class BrowserContextTest extends TestCase
         $this->assertEquals('a', $this->state->getLastForm()->get('form[selection]')->getValue());
     }
 
+    public function testISelectFromMultiple(): void
+    {
+        $crawler = new Crawler('<form><select name="form[selection]" multiple><option value="a">Option A</option><option value="b">Option B</option></select></form>', 'http://localhost/');
+        $this->state->setLastForm($crawler->filterXPath('//form'));
+        $this->browserContext->iSelectFrom('a,b', 'form[selection]');
+        $this->assertEquals(['a', 'b'], $this->state->getLastForm()->get('form[selection]')->getValue());
+    }
+
     public function testISelectFromNoChoice(): void
     {
         $crawler = new Crawler('<form><input type="text" name="form[selection]" /></form>', 'http://localhost/');
@@ -240,12 +256,29 @@ class BrowserContextTest extends TestCase
         $this->expectNotToPerformAssertions();
     }
 
-
     public function testTheResponseStatusCodeIsFails(): void
     {
         $this->state->update(Request::create('/'), new Response('', 404));
         $this->expectException(\RuntimeException::class);
         $this->browserContext->theResponseStatusCodeIs('200');
+    }
+
+    public function testTheResponseHasHttpHeaders(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 200, ['Content-Type' => 'application/json']));
+        $table = new TableNode([0 => ['content-type', 'application/json']]);
+        $this->browserContext->theResponseHasHttpHeaders($table);
+        $this->expectNotToPerformAssertions();
+    }
+
+    public function testTheResponseHasHttpHeadersFails(): void
+    {
+        $this->state->update(Request::create('/'), new Response('', 200, ['Content-Type' => 'text/plain']));
+        $table = new TableNode([0 => ['content-type', 'application/json']]);
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Header not found or not matching');
+        $this->expectExceptionMessage('content-type: text/plain');
+        $this->browserContext->theResponseHasHttpHeaders($table);
     }
 
     public function testIAmBeingRedirectedTo(): void
@@ -254,6 +287,7 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
         $this->expectNotToPerformAssertions();
     }
+
     public function testIAmBeingRedirectedToWrongCode(): void
     {
         $this->expectExceptionMessage('Wrong HTTP Code, got 200');
@@ -261,16 +295,18 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
         $this->expectNotToPerformAssertions();
     }
+
     public function testIAmBeingRedirectedToWrongLocation(): void
     {
         $this->expectExceptionMessage('Wrong redirect target: /anotherone');
-        $this->state->update(Request::create('/'), new Response('', 302, ['Location' =>'/anotherone']));
+        $this->state->update(Request::create('/'), new Response('', 302, ['Location' => '/anotherone']));
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
         $this->expectNotToPerformAssertions();
     }
+
     public function testIAmBeingRedirectedToNoLocation(): void
     {
-        $this->state->update(Request::create('/'), new Response('', 302, ));
+        $this->state->update(Request::create('/'), new Response('', 302,));
         $this->expectExceptionMessage('No location header found');
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
     }
@@ -359,7 +395,7 @@ class BrowserContextTest extends TestCase
         $this->setDom('<a href="/test">Hello World</a>');
         $this->expectNotToPerformAssertions();
         $table = new TableNode([0 => ['href', '/test']]);
-        $this->browserContext->idontSeeATag('a', $table, 'Bye World');
+        $this->browserContext->iDontSeeATag('a', $table, 'Bye World');
     }
 
     public function testIDontSeeATagFails(): void
@@ -368,12 +404,12 @@ class BrowserContextTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Tag found');
         $table = new TableNode([0 => ['href', '/test']]);
-        $this->browserContext->idontSeeATag('a', $table, 'Hello World');
+        $this->browserContext->iDontSeeATag('a', $table, 'Hello World');
     }
 
     public function testTheFormContainsAnInputField(): void
     {
-        $crawler = new Crawler('<form><input type="text" name="form[text]"></form>', 'http://localhost/');
+        $crawler = new Crawler('<form><input type="text" name="form[text]" /></form>', 'http://localhost/');
         $this->state->setLastForm($crawler->filterXPath('//form'));
         $tableData = [
             1 => ['type', 'text'],
