@@ -187,8 +187,10 @@ class BrowserContext implements Context
     public function theResponseHasHttpHeaders(TableNode $table): void
     {
         $response = $this->state->getResponse();
+        /** @var array<mixed,array<int,string>> $headers */
+        $headers = $response->headers->all();
         foreach ($this->getTableData($table) as $expectedHeader => $expectedValue) {
-            foreach ($response->headers->all() as $key => $values) {
+            foreach ($headers as $key => $values) {
                 if (strtolower((string)$key) === strtolower($expectedHeader)) {
                     foreach ($values as $value) {
                         if ($this->strComp->stringContains($value, $expectedValue)) {
@@ -199,7 +201,7 @@ class BrowserContext implements Context
             }
 
             $foundHeaders = [];
-            foreach ($response->headers->all() as $key => $values) {
+            foreach ($headers as $key => $values) {
                 foreach ($values as $value) {
                     $foundHeaders[] = $key.': '.$value;
                 }
@@ -278,7 +280,7 @@ class BrowserContext implements Context
         /** @var DOMElement $input */
         foreach ($inputs as $input) {
             foreach ($this->getTableData($attribs) as $attrName => $attrVal) {
-                if (!$this->strComp->stringEquals($input->getAttribute($attrName),$attrVal)) {
+                if (!$this->strComp->stringEquals($input->getAttribute($attrName), $attrVal)) {
                     continue 2;
                 }
             }
@@ -367,7 +369,7 @@ class BrowserContext implements Context
             $content = trim($content);
             /** @var DOMElement $elem */
             foreach ($elements as $elem) {
-                if ($this->strComp->stringEquals($elem->textContent,$content)) {
+                if ($this->strComp->stringEquals($elem->textContent, $content)) {
                     return null;
                 }
             }

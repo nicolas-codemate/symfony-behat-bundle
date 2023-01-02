@@ -29,7 +29,8 @@ class CommandContext implements Context
     public function __construct(
         protected ApplicationFactory $appFactory,
         protected StringCompare $strComp,
-    ){}
+    ) {
+    }
 
     #[BeforeScenario]
     public function resetDocumentIdStack(): void
@@ -75,7 +76,7 @@ class CommandContext implements Context
     public function theCommandOutputs(string $text): void
     {
         $found = $this->getOutput();
-        if (!$this->strComp->stringContains($found,$text)) {
+        if (!$this->strComp->stringContains($found, $text)) {
             throw new DomainException(sprintf("Text not found in\n%s", $found));
         }
     }
@@ -84,7 +85,7 @@ class CommandContext implements Context
     public function theCommandDoesNotOutput(string $text): void
     {
         $found = $this->getOutput();
-        if ($this->strComp->stringContains($found,$text)) {
+        if ($this->strComp->stringContains($found, $text)) {
             throw new \DomainException('Text found');
         }
     }

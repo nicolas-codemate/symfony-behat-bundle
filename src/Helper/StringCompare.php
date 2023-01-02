@@ -27,10 +27,10 @@ class StringCompare
         if (str_starts_with($expected, '~')) {
             $regex = substr($expected, 1);
             // Make it matche the whole string only
-            if (!str_starts_with($regex,'^')) {
+            if (!str_starts_with($regex, '^')) {
                 $regex = '^'.$regex;
             }
-            if (!str_ends_with($regex,'$')) {
+            if (!str_ends_with($regex, '$')) {
                 $regex .= '$';
             }
             return $this->regexCompare($actual, $regex);

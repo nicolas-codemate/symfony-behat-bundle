@@ -17,21 +17,23 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
     {
         $ext = new ElbformatSymfonyBehatExtension();
         $containerBuilder = $this->createMock(ContainerBuilder::class);
-        $containerBuilder->expects($this->at(5))
+
+        $containerBuilder->expects($this->exactly(7))
             ->method('setDefinition')
-            ->with(BrowserContext::class, $this->callback(function (Definition $def) {
+        ->withConsecutive(
+            [],
+            [],
+            [BrowserContext::class,$this->callback(function (Definition $def) {
                 return BrowserContext::class === $def->getClass();
-            }));
-        $containerBuilder->expects($this->at(6))
-            ->method('setDefinition')
-            ->with(CommandContext::class, $this->callback(function (Definition $def) {
+            })],
+            [CommandContext::class,$this->callback(function (Definition $def) {
                 return CommandContext::class === $def->getClass();
-            }));
-        $containerBuilder->expects($this->at(7))
-            ->method('setDefinition')
-            ->with(LoggingContext::class, $this->callback(function (Definition $def) {
+            })],
+            [LoggingContext::class,$this->callback(function (Definition $def) {
                 return LoggingContext::class === $def->getClass();
-            }));
+            })]
+        );
+
         $ext->load([], $containerBuilder);
     }
 }

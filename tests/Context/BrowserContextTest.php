@@ -306,7 +306,7 @@ class BrowserContextTest extends TestCase
 
     public function testIAmBeingRedirectedToNoLocation(): void
     {
-        $this->state->update(Request::create('/'), new Response('', 302,));
+        $this->state->update(Request::create('/'), new Response('', 302, ));
         $this->expectExceptionMessage('No location header found');
         $this->browserContext->iAmBeingRedirectedTo('/redirecttarget');
     }
