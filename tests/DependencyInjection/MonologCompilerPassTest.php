@@ -29,4 +29,13 @@ class MonologCompilerPassTest extends TestCase
         $containerBuilder->expects($this->once())->method('getDefinitions')->willReturn([]);
         $pass->process($containerBuilder);
     }
+
+    public function testProcessOtherServices(): void
+    {
+        $pass = new MonologCompilerPass();
+        $containerBuilder = $this->createMock(ContainerBuilder::class);
+        $def = $this->createMock(Definition::class);
+        $containerBuilder->expects($this->once())->method('getDefinitions')->willReturn(['other.service' => $def]);
+        $pass->process($containerBuilder);
+    }
 }

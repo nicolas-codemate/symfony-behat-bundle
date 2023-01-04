@@ -2,7 +2,7 @@
 
 Use docker for local tasks
 ```bash
-docker run -it -v $(pwd)/:/var/www hgiesenow/php:7.4 bash
+docker run -it -v $(pwd)/:/var/www $(docker build -q . -f docker/Dockerfile.php) sh
 # Install dependencies
 composer install
 # Run behat tests
@@ -16,6 +16,7 @@ vendor/bin/psalm
 
 Enable xdebug inside the container
 ```bash
+apk add autoconf g++ make
 pecl install xdebug-3.1.4
 docker-php-ext-enable xdebug
 export XDEBUG_CONFIG="client_host=172.17.0.1 idekey=PHPSTORM"

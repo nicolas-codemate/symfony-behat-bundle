@@ -4,6 +4,7 @@ namespace Context;
 
 use Elbformat\SymfonyBehatBundle\Application\ApplicationFactory;
 use Elbformat\SymfonyBehatBundle\Context\CommandContext;
+use Elbformat\SymfonyBehatBundle\Helper\StringCompare;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,7 +21,7 @@ class CommandContextTest extends TestCase
         $this->application = $this->createMock(Application::class);
         $this->appFactory = $this->createMock(ApplicationFactory::class);
         $this->appFactory->method('create')->willReturn($this->application);
-        $this->commandContext = new CommandContext($this->appFactory);
+        $this->commandContext = new CommandContext($this->appFactory, new StringCompare());
     }
 
     public function testReset(): void
@@ -71,6 +72,7 @@ class CommandContextTest extends TestCase
     {
         $this->application->expects($this->once())->method('run')->willReturnCallback(function (InputInterface $input, OutputInterface $output) {
             $output->write('Lorem Ipsum');
+            return 0;
         });
         $this->commandContext->iRunCommand('elbformat:behat:test');
         $this->commandContext->theCommandOutputs('Lorem Ipsum');
@@ -79,9 +81,30 @@ class CommandContextTest extends TestCase
     {
         $this->application->method('run')->willReturnCallback(function (InputInterface $input, OutputInterface $output) {
             $output->write('Lorem Ipsum');
+            return 0;
         });
         $this->expectExceptionMessage("Text not found in\nLorem Ipsum");
         $this->commandContext->iRunCommand('elbformat:behat:test');
         $this->commandContext->theCommandOutputs('Hello World');
+    }
+
+    public function testtheCommandDoesNotOutput(): void
+    {
+        $this->application->expects($this->once())->method('run')->willReturnCallback(function (InputInterface $input, OutputInterface $output) {
+            $output->write('Lorem Ipsum');
+            return 0;
+        });
+        $this->commandContext->iRunCommand('elbformat:behat:test');
+        $this->commandContext->theCommandDoesNotOutput('Hello World');
+    }
+    public function testTheCommandDoesNotOutputFails(): void
+    {
+        $this->application->method('run')->willReturnCallback(function (InputInterface $input, OutputInterface $output) {
+            $output->write('Lorem Ipsum');
+            return 0;
+        });
+        $this->expectExceptionMessage("Text found");
+        $this->commandContext->iRunCommand('elbformat:behat:test');
+        $this->commandContext->theCommandDoesNotOutput('Lorem Ipsum');
     }
 }

@@ -17,30 +17,23 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
     {
         $ext = new ElbformatSymfonyBehatExtension();
         $containerBuilder = $this->createMock(ContainerBuilder::class);
-        $containerBuilder->expects($this->at(5))
+
+        $containerBuilder->expects($this->exactly(7))
             ->method('setDefinition')
-            ->with(BrowserContext::class, $this->callback(function (Definition $def) {
-                if (BrowserContext::class !== $def->getClass()) {
-                    return false;
-                }
-                return true;
-            }));
-        $containerBuilder->expects($this->at(6))
-            ->method('setDefinition')
-            ->with(CommandContext::class, $this->callback(function (Definition $def) {
-                if (CommandContext::class !== $def->getClass()) {
-                    return false;
-                }
-                return true;
-            }));
-        $containerBuilder->expects($this->at(7))
-            ->method('setDefinition')
-            ->with(LoggingContext::class, $this->callback(function (Definition $def) {
-                if (LoggingContext::class !== $def->getClass()) {
-                    return false;
-                }
-                return true;
-            }));
+        ->withConsecutive(
+            [],
+            [],
+            [BrowserContext::class,$this->callback(function (Definition $def) {
+                return BrowserContext::class === $def->getClass();
+            })],
+            [CommandContext::class,$this->callback(function (Definition $def) {
+                return CommandContext::class === $def->getClass();
+            })],
+            [LoggingContext::class,$this->callback(function (Definition $def) {
+                return LoggingContext::class === $def->getClass();
+            })]
+        );
+
         $ext->load([], $containerBuilder);
     }
 }

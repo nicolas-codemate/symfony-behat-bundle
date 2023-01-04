@@ -42,6 +42,9 @@ default:
 ## Examples
 Examples can be found in [dock/examples.md](doc/examples.md).
 
+## Updating
+When updating from a previous version, see the [changelog](doc/changelog.md) for changes. 
+
 ## What's next?
 The next release will likely contain more contexts like
 * AbstractApiContext - to build your own API-Mock contexts
