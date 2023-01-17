@@ -21,11 +21,13 @@ class ArrayDeepCompare
      */
     public function arrayEquals($a, $b): bool
     {
+        $this->difference = null;
         return !$this->hasDiff($a, $b);
     }
 
     public function arrayContains(array $container, array $containment): bool
     {
+        $this->difference = null;
         return !$this->hasDiff($containment, $container, '', false);
     }
 

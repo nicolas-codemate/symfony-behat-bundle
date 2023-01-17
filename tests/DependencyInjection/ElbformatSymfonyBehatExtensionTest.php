@@ -18,9 +18,11 @@ class ElbformatSymfonyBehatExtensionTest extends TestCase
         $ext = new ElbformatSymfonyBehatExtension();
         $containerBuilder = $this->createMock(ContainerBuilder::class);
 
-        $containerBuilder->expects($this->exactly(7))
+        $containerBuilder->expects($this->exactly(9))
             ->method('setDefinition')
         ->withConsecutive(
+            [],
+            [],
             [],
             [],
             [BrowserContext::class,$this->callback(function (Definition $def) {
