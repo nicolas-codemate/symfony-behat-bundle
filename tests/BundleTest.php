@@ -19,7 +19,7 @@ class BundleTest extends TestCase
     {
         $bundle = new ElbformatSymfonyBehatBundle();
         $container = $this->createMock(ContainerBuilder::class);
-        $container->expects($this->exactly(2))->method('addCompilerPass')->withConsecutive([$this->isInstanceOf(MonologCompilerPass::class)], [$this->isInstanceOf(SwiftmailerCompilerPass::class)])->willReturn(null);
+        $container->expects($this->exactly(2))->method('addCompilerPass')->withConsecutive([$this->isInstanceOf(MonologCompilerPass::class)], [$this->isInstanceOf(SwiftmailerCompilerPass::class)]);
         $bundle->build($container);
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace Context;
+namespace Elbformat\SymfonyBehatBundle\Tests\Context;
 
 use Behat\Gherkin\Node\TableNode;
 use Doctrine\Common\Collections\ArrayCollection;

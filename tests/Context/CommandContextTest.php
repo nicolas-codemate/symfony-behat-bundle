@@ -1,6 +1,6 @@
 <?php
 
-namespace Context;
+namespace Elbformat\SymfonyBehatBundle\Tests\Context;
 
 use Elbformat\SymfonyBehatBundle\Application\ApplicationFactory;
 use Elbformat\SymfonyBehatBundle\Context\CommandContext;

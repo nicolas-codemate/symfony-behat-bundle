@@ -1,6 +1,6 @@
 <?php
 
-namespace Context;
+namespace Elbformat\SymfonyBehatBundle\Tests\Context;
 
 use Elbformat\SymfonyBehatBundle\Context\SwiftmailerContext;
 use Elbformat\SymfonyBehatBundle\Swiftmailer\TestTransport;
@@ -19,6 +19,9 @@ class SwiftmailerContextTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists('\Swift')) {
+            $this->markTestSkipped('Swiftmailer is no longer available in this symfony version.');
+        }
         $this->kernel = $this->createMock(Kernel::class);
         $this->container = $this->createMock(ContainerInterface::class);
         $this->mailer = $this->createMock(\Swift_Mailer::class);

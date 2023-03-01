@@ -1,6 +1,6 @@
 <?php
 
-namespace Browser;
+namespace Elbformat\SymfonyBehatBundle\Tests\Browser;
 
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use PHPUnit\Framework\TestCase;
