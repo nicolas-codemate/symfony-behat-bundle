@@ -1,6 +1,6 @@
 <?php
 
-namespace Context;
+namespace Elbformat\SymfonyBehatBundle\Tests\Context;
 
 use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;

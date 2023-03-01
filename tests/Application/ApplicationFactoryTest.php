@@ -1,6 +1,6 @@
 <?php
 
-namespace Application;
+namespace Elbformat\SymfonyBehatBundle\Tests\Application;
 
 use Elbformat\SymfonyBehatBundle\Application\ApplicationFactory;
 use PHPUnit\Framework\TestCase;
