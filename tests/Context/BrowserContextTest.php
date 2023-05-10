@@ -438,6 +438,13 @@ class BrowserContextTest extends TestCase
         $this->browserContext->theResponseJsonMatches(new PyStringNode(['{"hello":"world"}'], 0));
     }
 
+    public function testTheResponseJsonMatchesWithWrongOrder(): void
+    {
+        $this->setDom('{"hello":"world", "goodbye":"world", "a":1}');
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->theResponseJsonMatches(new PyStringNode(['{"goodbye":"world", "a":1, "hello":"world"}'], 0));
+    }
+
     public function testTheResponseJsonMatchesFail(): void
     {
         $this->setDom('{"hello":"world"}');
