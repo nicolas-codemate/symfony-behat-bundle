@@ -25,6 +25,7 @@ class MonologCompilerPass implements CompilerPassInterface
             $def->setClass(TestHandler::class);
             $def->setArguments([]);
             $def->setMethodCalls([]);
+            $def->clearTags();
         }
     }
 }
