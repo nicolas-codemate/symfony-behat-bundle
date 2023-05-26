@@ -355,6 +355,14 @@ class BrowserContextTest extends TestCase
         $this->browserContext->iSeeATag('a', $table, 'Hello World');
     }
 
+    public function testISeeATagWithContentComplex(): void
+    {
+        $this->setDom('<a href="/test"> <span> Hello World </span> <span> </span> </a>');
+        $table = new TableNode([0 => ['href', '/test']]);
+        $this->expectNotToPerformAssertions();
+        $this->browserContext->iSeeATag('a', $table, 'Hello World');
+    }
+
     public function testISeeATagFails(): void
     {
         $this->setDom('<a href="/test">Hello World</a>');

@@ -369,7 +369,7 @@ class BrowserContext implements Context
             $content = trim($content);
             /** @var DOMElement $elem */
             foreach ($elements as $elem) {
-                if ($this->strComp->stringEquals($elem->textContent, $content)) {
+                if ($this->strComp->stringEquals(trim($elem->textContent), $content)) {
                     return null;
                 }
             }
