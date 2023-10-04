@@ -12,7 +12,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\Persistence\Mapping\MappingException;
 use Doctrine\Persistence\ObjectRepository;
-use http\Exception\RuntimeException;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 
 /**
@@ -56,16 +55,18 @@ abstract class AbstractDatabaseContext implements Context
                 $this->exec("ALTER SEQUENCE $seqName RESTART WITH 1");
             }
         } else {
+            // @todo check if auto_increment exists
             $this->exec('ALTER TABLE '.$tableName.' AUTO_INCREMENT=1');
         }
     }
 
     protected function createObject(TableNode $table): void
     {
-        $obj = $this->newObject();
-        $pa = new PropertyAccessor();
         /** @var array<string,string> $tableData */
         $tableData = $table->getRowsHash();
+        $constructorArgs = $this->getConstructorArgsFromData($tableData);
+        $obj = $this->newObject($constructorArgs);
+        $pa = new PropertyAccessor();
         foreach ($tableData as $key => $val) {
             /** @psalm-suppress MixedAssignment */
             $val = $this->mapTableValue($key, $val);
@@ -78,7 +79,7 @@ abstract class AbstractDatabaseContext implements Context
     }
 
     /** @param class-string $class2 */
-    protected function createRelation(int $id1, string $class2, int $id2, string $relationName): void
+    protected function createRelation(int $id1, string $class2, int $id2, string $relationName, ?string $reverseRelationName = null): void
     {
         $entity1 = $this->getRepo()->find($id1);
         if (null === $entity1) {
@@ -95,11 +96,19 @@ abstract class AbstractDatabaseContext implements Context
             throw new \DomainException(sprintf('Property "%s" is not a collection', $relationName));
         }
         $collection->add($entity2);
+        if (null !== $reverseRelationName) {
+            $collection2 = $pa->getValue($entity2, $reverseRelationName);
+            if (!$collection2 instanceof Collection) {
+                throw new \DomainException(sprintf('Property "%s" is not a collection', $reverseRelationName));
+            }
+            $collection2->add($entity1);
+        }
         $this->em->flush();
         $this->em->clear();
     }
 
-    protected function assertObject(TableNode $table, bool $printAlternatives = true): void
+    /** @return T */
+    protected function assertObject(TableNode $table, bool $printAlternatives = true): object
     {
         $repo = $this->getRepo();
         /** @var array<string,string> $tableData */
@@ -112,8 +121,9 @@ abstract class AbstractDatabaseContext implements Context
         }
 
         // Found
-        if (null !== $repo->findOneBy($data)) {
-            return;
+        $obj = $repo->findOneBy($data);
+        if (null !== $obj) {
+            return $obj;
         }
 
         $this->em->clear();
@@ -159,6 +169,18 @@ abstract class AbstractDatabaseContext implements Context
             throw new \DomainException(sprintf('%s(%d) not in collection.', $containingClass, $containerId));
         }
     }
+
+    /** @param class-string $containingClass */
+    protected function assertCollectionDoesNotContain(int $containerId, string $containingClass, int $containingId, string $relation): void
+    {
+        try {
+            $this->assertCollectionContains($containerId, $containingClass, $containingId, $relation);
+        } catch (\DomainException) {
+            return;
+        }
+        throw new \DomainException('Found');
+    }
+
 
     protected function exec(string $query): void
     {
@@ -231,6 +253,9 @@ abstract class AbstractDatabaseContext implements Context
                 $realVal = $pa->getValue($item, $key);
                 $type = $this->getTypeOfProperty($key);
                 switch (true) {
+                    case $realVal instanceof \BackedEnum:
+                        $realVal = $realVal->value;
+                        break;
                     case $realVal instanceof \UnitEnum:
                         $realVal = $realVal->name;
                         break;
@@ -273,12 +298,12 @@ abstract class AbstractDatabaseContext implements Context
     }
 
     /** @return T */
-    protected function newObject(): object
+    protected function newObject(array $constructorArgs = []): object
     {
         $className = $this->getClassName();
 
         /** @psalm-suppress MixedMethodCall */
-        return new $className();
+        return new $className(...$constructorArgs);
     }
 
     /** @return EntityRepository<T> */
@@ -309,6 +334,33 @@ abstract class AbstractDatabaseContext implements Context
         $type = $reflProp->getType();
 
         return $type instanceof \ReflectionNamedType ? $type->getName() : null;
+    }
+
+    /**
+     * @param array<string,string> $data
+     * @return array<string,mixed>
+     */
+    protected function getConstructorArgsFromData(array $data): array
+    {
+        $refl = new \ReflectionClass($this->getClassName());
+        $constructor = $refl->getConstructor();
+        if (null === $constructor) {
+            return [];
+        }
+        $constructorArgs = $constructor->getParameters();
+        $constructorParams = [];
+        foreach ($constructorArgs as $arg) {
+            $argName = $arg->getName();
+            /** @psalm-suppress MixedAssignment */
+            $constructorParams[$argName] = $this->mapTableValue($argName, $data[$argName] ?? $this->getDefaultValue($argName));
+        }
+
+        return $constructorParams;
+    }
+
+    protected function getDefaultValue(string $var): string
+    {
+        return '';
     }
 
     /** @return class-string<T> */

@@ -4,11 +4,22 @@ namespace Elbformat\SymfonyBehatBundle\Tests\Browser;
 
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class StateTest extends TestCase
 {
+    public function testReset(): void
+    {
+        $state = new State();
+        $state->update(Request::create('/'), new Response('', 200, ['set-cookie' => ['hello=world']]));
+        $state->reset();
+        $this->assertCount(0, $state->getCookies());
+        $this->expectExceptionMessage('No request was made yet');
+        $state->getRequest();
+    }
+
     public function testUpdateCookies(): void
     {
         $state = new State();
@@ -32,16 +43,16 @@ class StateTest extends TestCase
         $state->getRequest();
     }
 
-    public function testGetLastFormNotSet(): void
+    public function testCrawlerMutatesonUpdate(): void
     {
         $state = new State();
-        $this->expectExceptionMessage('No form was queried yet');
-        $state->getLastForm();
-    }
-    public function testGetLastFormCrawlerNotSet(): void
-    {
-        $state = new State();
-        $this->expectExceptionMessage('No form was queried yet');
-        $state->getLastFormCrawler();
+        $response = new Response('', 200);
+        $state->update(Request::create('/'), $response);
+        $crawler1 = $state->getCrawler();
+        $this->assertSame($state->getResponse(), $response);
+        $response2 = new Response('2', 200);
+        $state->update(Request::create('/2'), $response2);
+        $crawler2 = $state->getCrawler();
+        $this->assertNotSame($crawler1, $crawler2);
     }
 }

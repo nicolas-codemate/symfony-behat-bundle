@@ -1,215 +1,112 @@
 <?php
 
-namespace Elbformat\SymfonyBehatBundle\Tests\Context;
+namespace Context;
 
 use Behat\Gherkin\Node\TableNode;
-use Behat\Testwork\Hook\Scope\AfterTestScope;
-use Behat\Testwork\Tester\Result\TestResult;
 use Elbformat\SymfonyBehatBundle\Context\LoggingContext;
-use Monolog\Formatter\FormatterInterface;
-use Monolog\Handler\TestHandler;
-use Monolog\Level;
-use Monolog\LogRecord;
+use Elbformat\SymfonyBehatBundle\Logger\TestLogger;
+use Elbformat\SymfonyBehatBundle\Tests\Context\ExpectNotToPerformAssertionTrait;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpKernel\Kernel;
-use Symfony\Component\HttpKernel\KernelInterface;
 
 class LoggingContextTest extends TestCase
 {
+    use ExpectNotToPerformAssertionTrait;
+
     protected ?LoggingContext $loggingContext = null;
-    protected ?KernelInterface $kernel = null;
-    protected ?ContainerInterface $container = null;
-    protected ?TestHandler $handler = null;
-    protected ?FormatterInterface $formatter = null;
 
     protected function setUp(): void
     {
-        $this->kernel = $this->createMock(Kernel::class);
-        $this->container = $this->createMock(ContainerInterface::class);
-        $this->handler = new TestHandler();
-        $this->formatter = $this->createMock(FormatterInterface::class);
-        $this->formatter->method('format')->willReturnCallback(function ($record) {
-            return $record['message'];
-        });
-        $this->handler->setFormatter($this->formatter);
-        $this->kernel->method('getContainer')->willReturn($this->container);
-        $this->loggingContext = new LoggingContext($this->kernel);
+        $this->loggingContext = new LoggingContext();
+        $this->loggingContext->reset();
     }
 
-    public function testDumpLog(): void
+    public function testTheLogContainsAnEntry(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->handle(100, 'ignore me');
-        $event = $this->createMock(AfterTestScope::class);
-        $testResult = $this->createMock(TestResult::class);
-        $testResult->method('isPassed')->willReturn(false);
-        $event->expects($this->once())->method('getTestResult')->willReturn($testResult);
-        $this->loggingContext->dumpLog($event);
+        $logger = new TestLogger();
+        $logger->log('warn', 'This is a warning');
+        $this->loggingContext->theLogContainsAnEntry('warn', 'This is a warning');
+        $this->expectNotToPerformAssertions();
     }
 
-    public function testDumpLogPassed(): void
+    public function testTheLogContainsAnEntryContext(): void
     {
-        $event = $this->createMock(AfterTestScope::class);
-        $testResult = $this->createMock(TestResult::class);
-        $testResult->expects($this->once())->method('isPassed')->willReturn(true);
-        $event->expects($this->once())->method('getTestResult')->willReturn($testResult);
-        $this->loggingContext->dumpLog($event);
+        $logger = new TestLogger();
+        $logger->log('warn', 'This is a warning', ['lorem' => 'ipsum']);
+        $this->loggingContext->theLogContainsAnEntry('warn', 'This is a warning', new TableNode([
+            [
+                'lorem',
+                'ipsum',
+            ],
+        ]), false);
+        $this->expectNotToPerformAssertions();
     }
 
-    public function testTheLogfileContainsAnEntry(): void
+    public function testTheLogContainsAnEntryContextArray(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->formatter->expects($this->once())->method('format');
-        $this->handle(400, 'Hello World');
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World');
+        $logger = new TestLogger();
+        $logger->log('warn', 'This is a warning', ['lorem' => ['dolor' => 'sit']]);
+        $this->loggingContext->theLogContainsAnEntry('warn', 'This is a warning', new TableNode([
+            [
+                'lorem',
+                '{"dolor":"sit"}',
+            ],
+        ]), false);
+        $this->expectNotToPerformAssertions();
     }
 
-    public function testTheLogfileContainsAnEntryFail(): void
+    public function testTheLogContainsAnEntryFailNoEntry(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->handle(400, 'Bye World');
+        $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Log entry not found.');
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World');
+        $this->loggingContext->theLogContainsAnEntry('warn', 'This is a warning');
     }
 
-    public function testTheLogfileContainsAnEntryWithContext(): void
+    public function testTheLogContainsAnEntryFailWrongSeverity(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $record = [
-            'level' => '400',
-            'message' => 'Hello World',
-            'context' => ['hello' => 'world'],
-        ];
-        $this->formatter->expects($this->once())->method('format');
-        $this->handle(400, 'Hello World', ['hello' => 'world']);
-        $tableData = [
-            0 => ['hello', 'world'],
-        ];
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World', new TableNode($tableData));
+        $logger = new TestLogger();
+        $logger->log('warn', 'This is a warning');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Log entry not found.');
+        $this->loggingContext->theLogContainsAnEntry('error', 'This is a warning');
     }
 
-    public function testTheLogfileContainsAnEntryWithContextRegex(): void
+    public function testTheLogContainsAnEntryFailWrongMessage(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $record = [
-            'level' => '400',
-            'message' => 'Hello World',
-            'context' => ['hello' => 'world'],
-        ];
-        $this->formatter->expects($this->once())->method('format');
-        $this->handler->handle($record);
-        $tableData = [
-            0 => ['hello', '~or'],
-        ];
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World', new TableNode($tableData));
+        $logger = new TestLogger();
+        $logger->log('error', 'This is an error');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Log entry not found.');
+        $this->loggingContext->theLogContainsAnEntry('error', 'This is a warning');
     }
 
-    public function testTheLogfileContainsAnEntryWithContextJson(): void
+    public function testTheLogContainsAnEntryFailMissingContext(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $record = [
-            'level' => '400',
-            'message' => 'Hello World',
-            'context' => ['obj' => ['hello' => 'world']],
-        ];
-        $this->formatter->expects($this->once())->method('format');
-        $this->handler->handle($record);
-        $tableData = [
-            0 => ['obj', '{"hello":"world"}'],
-        ];
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World', new TableNode($tableData));
+        $logger = new TestLogger();
+        $logger->log('error', 'This is an error');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Log entry not found.');
+        $this->expectExceptionMessage('ERROR: This is an error');
+        $this->loggingContext->theLogContainsAnEntry('error', 'This is an error', new TableNode([['lorem', 'ipsum']]));
     }
 
-    public function testTheLogfileContainsAnEntryWithContextFail(): void
+    public function testTheLogContainsAnEntryFailWrongContextValue(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $record = [
-            'level' => '400',
-            'message' => 'Hello World',
-            'context' => ['hello' => 'mars'],
-        ];
-        $this->handler->handle($record);
-        $record = [
-            'level' => '400',
-            'message' => 'Hello World',
-        ];
-        $this->handler->handle($record);
-        $record = [
-            'level' => '400',
-            'message' => 'Bye World',
-            'context' => ['hello' => 'world'],
-        ];
-        $this->handler->handle($record);
-        $this->expectExceptionMessage('Log entry found, but with different context.');
-        $tableData = [
-            0 => ['hello', 'world'],
-        ];
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World', new TableNode($tableData));
+        $logger = new TestLogger();
+        $logger->log('error', 'This is an error', ['lorem' => 'dolor']);
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Log entry not found.');
+        $this->expectExceptionMessage('ERROR: This is an error');
+        $this->loggingContext->theLogContainsAnEntry('error', 'This is an error', new TableNode([['lorem', 'ipsum']]));
     }
 
-    public function testTheLogfileContainsAnEntryWithContextJsonFail(): void
+    public function testTheLogContainsAnEntryFailWrongContextArray(): void
     {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->handle(400, 'Hello World', ['obj' => ['hello' => 'not']]);
-        $this->expectExceptionMessage('Log entry found, but with different context.');
-        $tableData = [
-            0 => ['obj', '{"hello":"world"}'],
-        ];
-        $this->loggingContext->theLogfileContainsAnEntry('main', 'error', 'Hello World', new TableNode($tableData));
+        $logger = new TestLogger();
+        $logger->log('error', 'This is an error', ['lorem' => ['dolor' => 'sit']]);
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Log entry not found.');
+        $this->expectExceptionMessage('ERROR: This is an error');
+        $this->loggingContext->theLogContainsAnEntry('error', 'This is an error', new TableNode([['lorem', '{"ipsum": "sit"}']]));
     }
 
-    public function testTheLogfileDoesntContainAnyEntries(): void
-    {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->formatter->expects($this->once())->method('format');
-        $this->handle(100, 'Hello World');
-        $this->loggingContext->theLogfileDoesntContainAnyEntries('main', 'error');
-    }
-
-    public function testTheLogfileDoesntContainAnyEntriesFail(): void
-    {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->handle(400, 'Hello World');
-        $this->expectExceptionMessage('Log entries found');
-        $this->loggingContext->theLogfileDoesntContainAnyEntries('main', 'error');
-    }
-
-    public function testTheLogfileDoesntContainAnEntry(): void
-    {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->formatter->expects($this->once())->method('format');
-        $this->handle(100, 'Hello World');
-        $this->loggingContext->theLogfileDoesntContainAnEntry('main', 'error', ' Hello world');
-    }
-
-    public function testTheLogfileDoesntContainAnEntryFail(): void
-    {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn($this->handler);
-        $this->handle(400, 'Hello World');
-        $this->expectExceptionMessage('Entry found');
-        $this->loggingContext->theLogfileDoesntContainAnEntry('main', 'error', 'Hello World');
-    }
-
-    public function testGetLogHandlerFails(): void
-    {
-        $this->container->method('get')->with('monolog.handler.main')->willReturn(null);
-        $this->expectExceptionMessage('No monolog TestHandler found named monolog.handler.main. Is it public?');
-        $this->loggingContext->printLogs();
-    }
-
-    protected function handle(int $level, string $message, array $context = []): void
-    {
-        // Preparation for monolog 3.x
-        if (class_exists('\\Monolog\\LogRecord')) {
-            $record = new LogRecord(new \DateTimeImmutable(), 'main', Level::fromValue($level), $message, $context);
-        } else {
-            $record = [
-                'level' => $level,
-                'message' => $message,
-                'context' => $context,
-            ];
-        }
-        $this->handler->handle($record);
-    }
 }
