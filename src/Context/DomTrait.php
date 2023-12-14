@@ -2,6 +2,8 @@
 
 namespace Elbformat\SymfonyBehatBundle\Context;
 
+use DOMAttr;
+use DOMNamedNodeMap;
 use Elbformat\SymfonyBehatBundle\Browser\State;
 use Symfony\Component\DomCrawler\Crawler;
 
@@ -21,7 +23,22 @@ trait DomTrait
             $names = [];
             foreach ($fallbacks as $fallback) {
                 $doc = $fallback->ownerDocument;
-                $names[] = $doc ? $doc->saveXML($fallback) : '<unknown>';
+                $fullTag = $doc ? $doc->saveXML($fallback) : '<unknown>';
+                // We have a maximum of 2 nested tags here (e.g. <a><p>...</p></a>)
+                if (substr_count($fullTag, '<') <= 4) {
+                    $names[] = $fullTag;
+                    continue;
+                }
+                // Rebuild otherwise
+                $attribs = '';
+                /** @var DOMNamedNodeMap $fallbackAttributes */
+                $fallbackAttributes = $fallback->attributes;
+                /** @var DOMAttr $attribute */
+                foreach($fallbackAttributes as $attribute) {
+                    $attribs .= sprintf(' %s="%s"', $attribute->nodeName, $attribute->value);
+                }
+                $foundTag = sprintf('<%s%s>...%s...</%1$s>', $fallback->nodeName, $attribs, $fallback->textContent);
+                $names[] = $foundTag;
             }
             switch (\count($names)) {
                 case 0:

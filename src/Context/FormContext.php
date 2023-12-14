@@ -113,7 +113,7 @@ class FormContext implements Context
     {
         $form = $this->getLastForm();
         $newInput = $form->getNode()->ownerDocument?->createElement('input');
-        if (! $newInput instanceof DOMElement) {
+        if (!$newInput instanceof DOMElement) {
             throw new \DomainException('Error creating element');
         }
         $newInput->setAttribute('name', $name);

@@ -61,7 +61,8 @@ class CommandContext implements Context
     }
 
     #[Then('the command has a return value of :code')]
-    public function theCommandSHasAReturnValueOf(int $code): void
+    #[Then('the command is successful')]
+    public function theCommandSHasAReturnValueOf(int $code = 0): void
     {
         if (($this->getReturnCode()) !== ($code)) {
             $msg = sprintf('Expected the command to return code %d but got %d', $code, $this->getReturnCode());

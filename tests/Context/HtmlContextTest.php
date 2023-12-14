@@ -112,6 +112,15 @@ class HtmlContextTest extends TestCase
         $this->htmlContext->iSeeATag('a', $table, 'Hello World');
     }
 
+    public function testISeeATagFailsNoSubtree(): void
+    {
+        $this->setDom('<a href="/test"><p>Hello </p><p>World</p></a>');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Tag not found. Did you mean "<a href="/test">...Hello World...</a>"?');
+        $table = new TableNode([0 => ['href', '/notest']]);
+        $this->htmlContext->iSeeATag('a', $table, 'Hello World');
+    }
+
     public function testISeeATagFailsNoTag(): void
     {
         $this->setDom('<p>Hello World</p>');
