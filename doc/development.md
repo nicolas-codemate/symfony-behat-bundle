@@ -2,10 +2,10 @@
 
 Use docker for local tasks
 ```bash
-docker run -it -v $(pwd)/:/var/www $(docker build -q . -f docker/Dockerfile.php) sh
+docker-compose run php sh
 # Install dependencies
 composer install
-# Run behat tests
+# Run unittests
 vendor/bin/phpunit
 # Fix styling
 vendor/bin/php-cs-fixer fix --diff src
