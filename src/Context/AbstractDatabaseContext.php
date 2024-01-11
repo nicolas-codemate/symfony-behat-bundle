@@ -68,6 +68,10 @@ abstract class AbstractDatabaseContext implements Context
         $obj = $this->newObject($constructorArgs);
         $pa = new PropertyAccessor();
         foreach ($tableData as $key => $val) {
+            // Skip, when entry was already consumed in constructor
+            if (array_key_exists($key, $constructorArgs)) {
+                continue;
+            }
             /** @psalm-suppress MixedAssignment */
             $val = $this->mapTableValue($key, $val);
             $pa->setValue($obj, $key, $val);
@@ -221,6 +225,8 @@ abstract class AbstractDatabaseContext implements Context
                 }
 
                 return (bool)$value;
+            case 'array' === $type:
+                return json_decode($value, true, flags: JSON_THROW_ON_ERROR);
             default:
                 return $value;
         }
