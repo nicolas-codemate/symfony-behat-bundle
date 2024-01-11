@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.4
+* Bugfix: Remove data from the table, that has been consumed in the constructor
+* Improvement: Use JSON to fill array values in AbstractDatabaseContext
+
 ## v1.5.3
 * Improvement of output for found tags: Do not show more than 1 nested entry
 * Use docker-compose for local setup
