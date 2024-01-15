@@ -9,7 +9,7 @@ services:
   # Will be added dynamically, when symfony/framework-bundle is installed
   #Elbformat\SymfonyBehatBundle\Context\CommandContext:
   # Will be added dynamically, when slope-it/clock-mock is installed
-  #Elbformat\SymfonyBehatBundle\Context\CommandContext:
+  #Elbformat\SymfonyBehatBundle\Context\DateContext:
   Elbformat\SymfonyBehatBundle\Context\FormContext:
     arguments:
       $kernel: '@kernel'
@@ -36,6 +36,7 @@ services:
 
   Elbformat\SymfonyBehatBundle\Helper\ArrayDeepCompare: ~
   Elbformat\SymfonyBehatBundle\Helper\StringCompare: ~
+  Elbformat\SymfonyBehatBundle\HttpClient\MockClientCallback: ~
   Elbformat\SymfonyBehatBundle\Logger\TestLogger: ~
   Elbformat\SymfonyBehatBundle\Mailer\TestTransportFactory:
     tags:
