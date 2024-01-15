@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.5.5
+* Bugfix: Documentation and service definition for MockClientCallback to test APIs
+
 ## v1.5.4
 * Bugfix: Remove data from the table, that has been consumed in the constructor
 * Improvement: Use JSON to fill array values in AbstractDatabaseContext

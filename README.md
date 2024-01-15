@@ -64,7 +64,7 @@ To not send requests to a real api, you should configure the MockClient to be us
 when@test:
     framework:
         http_client:
-            mock_response_factory: App\Tests\Mock\MockClientCallback
+            mock_response_factory: Elbformat\SymfonyBehatBundle\HttpClient\MockClientCallback
 ```         
 
 ## Examples
