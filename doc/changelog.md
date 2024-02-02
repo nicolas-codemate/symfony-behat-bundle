@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.5.6
+* Feature: Testing with command inputs 
+
 ## v1.5.5
 * Bugfix: Documentation and service definition for MockClientCallback to test APIs
 

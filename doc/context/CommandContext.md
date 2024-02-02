@@ -1,6 +1,10 @@
 # CommandContext
 This context contains steps to test symfony commands
 
+## Given
+### `Given the next command input is <answer>`
+Will answer the next upcoming question with <answer>.
+
 ## When
 ### `When I run command <command>`
 Execute the given symfony command, including parsing of arguments.
