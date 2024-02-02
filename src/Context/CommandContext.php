@@ -6,6 +6,7 @@ namespace Elbformat\SymfonyBehatBundle\Context;
 
 use Behat\Behat\Context\Context;
 use Behat\Hook\BeforeScenario;
+use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
 use DomainException;
@@ -23,6 +24,8 @@ class CommandContext implements Context
 {
     private ?string $output = null;
     private ?int $returnCode = null;
+    /** @var ?resource */
+    private $stream = null;
 
     public function __construct(
         protected ApplicationFactory $appFactory,
@@ -35,15 +38,32 @@ class CommandContext implements Context
     {
         $this->output = null;
         $this->returnCode = null;
+        $this->stream = null;
+    }
+
+    #[Given('the next command input is :string')]
+    public function theNextCommandInputIs(string $string)
+    {
+        if (null === $this->stream) {
+            $this->stream = fopen('php://memory', 'r+', false);
+        }
+        fwrite($this->stream, $string.\PHP_EOL);
     }
 
     #[When('I run command :command')]
     public function iRunCommand(string $command): void
     {
         $params = explode(' ', $command);
-        array_unshift($params, '-n');
+        if (null === $this->stream) {
+            array_unshift($params, '-n');
+        }
         array_unshift($params, 'console');
         $input = new ArgvInput($params);
+        if (null !== $this->stream) {
+            rewind($this->stream);
+            $input->setStream($this->stream);
+            $input->setInteractive(true);
+        }
         $output = new BufferedOutput();
 
         try {
