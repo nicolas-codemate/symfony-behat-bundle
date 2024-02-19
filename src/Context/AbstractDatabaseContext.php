@@ -240,6 +240,7 @@ abstract class AbstractDatabaseContext implements Context
         }
 
         return match ($type) {
+            'array' => json_decode($value, false, 512, JSON_THROW_ON_ERROR),
             'bool' => 'false' !== $value && '0' !== $value,
             'DateTimeInterface', 'DateTime' => new \DateTime($value),
             'DateTimeImmutable' => new \DateTimeImmutable($value),
@@ -267,6 +268,9 @@ abstract class AbstractDatabaseContext implements Context
                         break;
                     case 'bool' === $type:
                         $realVal = $realVal ? 'true' : 'false';
+                        break;
+                    case 'array' === $type:
+                        $realVal = json_encode($realVal);
                         break;
                     case $realVal instanceof \DateTimeInterface:
                         $realVal = $realVal->format('c');

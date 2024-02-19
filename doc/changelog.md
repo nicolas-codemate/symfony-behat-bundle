@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.5.7
+* Feature/Fix: Support json arrays in AbstractDatabaseContext  
+
 ## v1.5.6
 * Feature: Testing with command inputs 
 
